@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Swing Scanner</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;600;700;800&display=swap');
+:root{
+  --bg:#07090f;--surface:#0c1422;--card:#101828;--border:#1a2d45;
+  --accent:#38bdf8;--green:#34d399;--red:#f87171;--gold:#fbbf24;
+  --orange:#fb923c;--text:#dde8f5;--sub:#7a9ec0;--muted:#334d66;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;min-height:100vh;padding-bottom:60px;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+#setup{position:fixed;inset:0;background:rgba(7,9,15,.97);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;}
+#setup-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 40px;max-width:480px;width:100%;text-align:center;}
+#setup-box h2{font-size:20px;font-weight:800;margin-bottom:8px;}
+#setup-box p{color:var(--sub);font-size:13px;line-height:1.6;margin-bottom:20px;}
+.fl{font-size:10px;color:var(--muted);letter-spacing:1.4px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;text-align:left;margin-bottom:6px;}
+.si{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;font-size:13px;font-family:'IBM Plex Mono',monospace;outline:none;margin-bottom:12px;transition:border .15s;}
+.si:focus{border-color:var(--accent);}
+#btn-launch{width:100%;background:linear-gradient(135deg,var(--accent),#818cf8);color:var(--bg);font-size:14px;font-weight:800;padding:11px;border-radius:8px;border:none;cursor:pointer;}
+#setup-note{margin-top:12px;font-size:11px;color:var(--muted);line-height:1.5;}
+
+#header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;position:sticky;top:0;z-index:100;}
+#hi{max-width:1300px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+#lr{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+.dot.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;}
+.dot.scanning{background:var(--gold);box-shadow:0 0 6px var(--gold);}
+#st{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+h1{font-size:20px;font-weight:800;}h1 span{color:var(--accent);}
+#hcontrols{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+button{border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:opacity .15s;display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;}
+button:hover{opacity:.82;}button:disabled{opacity:.4;cursor:not-allowed;}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+
+#mode-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 24px;}
+#mode-inner{max-width:1300px;margin:0 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.mode-btn{background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;}
+.mode-btn.bull{background:var(--green)18;color:var(--green);border-color:var(--green)40;}
+.mode-btn.bear{background:var(--orange)18;color:var(--orange);border-color:var(--orange)40;}
+#mode-desc{font-size:11px;color:var(--muted);font-style:italic;}
+
+#vol-note{background:rgba(56,189,248,.08);border:1px solid var(--accent)25;border-radius:8px;padding:7px 14px;font-size:11px;color:var(--accent);max-width:1300px;margin:8px auto 0;padding-left:24px;padding-right:24px;display:none;}
+
+#sector-bar{background:rgba(12,20,34,.8);border-bottom:1px solid var(--border);padding:8px 24px;overflow-x:auto;}
+#sector-inner{max-width:1300px;margin:0 auto;display:flex;align-items:center;gap:6px;min-width:max-content;}
+.sect-btn{background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:20px;padding:3px 11px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.sect-btn:hover{color:var(--sub);opacity:1;}
+.sect-btn.active{background:var(--accent)18;color:var(--accent);border-color:var(--accent)40;}
+.sect-btn.hot{color:var(--orange);border-color:var(--orange)30;}
+.sect-btn.hot.active{background:var(--orange)18;border-color:var(--orange)45;}
+
+#crit-bar{background:rgba(12,20,34,.5);border-bottom:1px solid var(--border);padding:6px 24px;}
+#crit-inner{max-width:1300px;margin:0 auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.ctag{border-radius:20px;padding:2px 9px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
+.ctag-bull{background:var(--accent)12;color:var(--accent);border:1px solid var(--accent)22;}
+.ctag-bear{background:var(--orange)12;color:var(--orange);border:1px solid var(--orange)22;}
+.clabel{font-size:10px;color:var(--muted);}
+
+#prog-wrap{max-width:1300px;margin:0 auto;padding:0 24px;display:none;}
+#prog-outer{height:3px;background:var(--border);border-radius:2px;margin:12px 0 0;overflow:hidden;}
+#prog-inner{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:2px;transition:width .3s;width:0%;}
+#prog-label{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:5px;}
+
+#main{max-width:1300px;margin:0 auto;padding:18px 24px;}
+
+#market-banner{background:linear-gradient(135deg,rgba(251,146,60,.08),rgba(251,146,60,.03));border:1px solid var(--orange)28;border-radius:10px;padding:12px 16px;margin-bottom:18px;display:none;animation:fadeUp .3s ease;}
+#market-banner .mb-title{color:var(--orange);font-weight:800;font-size:12px;margin-bottom:3px;}
+#market-banner .mb-body{color:var(--sub);font-size:11px;line-height:1.6;}
+
+#stats{display:none;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+.sc{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:9px 14px;min-width:100px;}
+.sl{font-size:10px;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;margin-bottom:3px;}
+.sv{font-size:18px;font-weight:800;font-family:'IBM Plex Mono',monospace;}
+
+#sort-row{display:none;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.sort-label{font-size:11px;color:var(--muted);}
+.sort-btn{background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:3px 9px;font-size:11px;cursor:pointer;}
+.sort-btn.active{background:var(--accent)18;color:var(--accent);border-color:var(--accent)35;}
+
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;}
+
+.rc{background:var(--card);border-radius:11px;padding:16px 18px;animation:fadeUp .25s ease;position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s;}
+.rc:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,.3);}
+.rc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.rc.tp::before{background:linear-gradient(90deg,var(--green),#059669);}
+.rc.tp{border:1px solid var(--green)30;}
+.rc.tb::before{background:linear-gradient(90deg,var(--accent),#818cf8);}
+.rc.tb{border:1px solid var(--accent)30;}
+.rc.tw::before{background:linear-gradient(90deg,var(--gold),#f97316);}
+.rc.tw{border:1px solid var(--gold)30;}
+.rc.tr::before{background:linear-gradient(90deg,var(--orange),var(--red));}
+.rc.tr{border:1px solid var(--orange)30;}
+
+.rch{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.rl{display:flex;flex-direction:column;}
+.rsym{font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:800;}
+.rsec{font-size:10px;color:var(--muted);margin-top:1px;}
+.badge{display:inline-block;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;}
+.bp{background:var(--green)12;color:var(--green);border:1px solid var(--green)28;}
+.bb{background:var(--accent)12;color:var(--accent);border:1px solid var(--accent)28;}
+.bw{background:var(--gold)12;color:var(--gold);border:1px solid var(--gold)28;}
+.br{background:var(--orange)12;color:var(--orange);border:1px solid var(--orange)28;}
+
+.rprice{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;margin-bottom:2px;}
+.rchg{font-family:'IBM Plex Mono',monospace;font-size:11px;margin-bottom:10px;}
+.rvol{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:10px;}
+
+.rsigs{border-top:1px solid var(--border);padding-top:8px;margin-bottom:10px;}
+.sigrow{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;color:var(--sub);}
+.sdot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.sg{background:var(--green);}
+.so{background:var(--gold);}
+.sr2{background:var(--orange);}
+
+.rfooter{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:8px;}
+.rscore{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);}
+.rscore span{color:var(--text);font-weight:700;}
+.cbtn{background:var(--accent)12;color:var(--accent);border:1px solid var(--accent)25;border-radius:5px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;transition:background .15s;}
+.cbtn:hover{background:var(--accent)25;opacity:1;}
+.cbtn.copied{background:var(--green)15;color:var(--green);border-color:var(--green)28;}
+
+#empty{text-align:center;padding:50px 0;color:var(--muted);}
+#empty .ei{font-size:36px;margin-bottom:12px;}
+#empty .et{font-size:15px;color:var(--sub);margin-bottom:8px;font-weight:600;}
+#empty .es{font-size:12px;line-height:1.7;}
+#empty .es span{color:var(--green);font-weight:700;}
+#empty .es strong{color:var(--accent);}
+</style>
+</head>
+<body>
+
+<!-- Setup -->
+<div id="setup">
+  <div id="setup-box">
+    <div style="font-size:36px;margin-bottom:12px">🔍</div>
+    <h2>Swing Scanner</h2>
+    <p>Scans 500 liquid US stocks using real-time quote data. Uses <strong style="color:var(--accent)">previous day's volume</strong> after hours so results are meaningful any time of day.</p>
+    <div class="fl">Finnhub API Key</div>
+    <input class="si" id="inp-fh" type="text" placeholder="d6s1gi..." autocomplete="off" spellcheck="false" value="d6s1gihr01qpss2i0kegd6s1gihr01qpss2i0kf0"/>
+    <button id="btn-launch" onclick="launch()">Launch Scanner →</button>
+    <div id="setup-note">Results appear in real time · Best run during market hours for live volume · Previous day volume used after hours</div>
+  </div>
+</div>
+
+<!-- Header -->
+<div id="header">
+  <div id="hi">
+    <div>
+      <div id="lr"><div class="dot" id="sdot"></div><span id="st">Ready</span></div>
+      <h1>Swing <span>Scanner</span></h1>
+    </div>
+    <div id="hcontrols">
+      <button style="background:linear-gradient(135deg,var(--green),#059669);color:#07090f;font-weight:800;" id="btn-scan" onclick="runScan()">🔍 Scan 500 Stocks</button>
+      <button style="background:linear-gradient(135deg,var(--red),#dc2626);color:#fff;display:none;" id="btn-stop" onclick="stopScan()">⏹ Stop</button>
+      <button style="background:var(--card);color:var(--sub);border:1px solid var(--border);" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- Progress -->
+<div id="prog-wrap">
+  <div id="prog-outer"><div id="prog-inner"></div></div>
+  <div id="prog-label">Initializing…</div>
+</div>
+
+<!-- Mode -->
+<div id="mode-bar">
+  <div id="mode-inner">
+    <span style="font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;">MODE:</span>
+    <button class="mode-btn" id="mbull" onclick="setMode('bull')">🟢 Normal Market</button>
+    <button class="mode-btn bear" id="mbear" onclick="setMode('bear')">🟠 Bear Market Mode</button>
+    <span id="mode-desc">Bear Market Mode — loosened criteria, hot sectors prioritized</span>
+  </div>
+</div>
+
+<!-- Volume note -->
+<div id="vol-note">📊 After-hours mode — using previous day's volume for all stocks. Run during market hours (9:30 AM – 4 PM ET) for live volume.</div>
+
+<!-- Criteria -->
+<div id="crit-bar">
+  <div id="crit-inner"></div>
+</div>
+
+<!-- Sector filter -->
+<div id="sector-bar">
+  <div id="sector-inner">
+    <span style="font-size:10px;color:var(--muted);">Sector:</span>
+    <button class="sect-btn active" onclick="setSector('All',this)">All</button>
+    <button class="sect-btn hot"    onclick="setSector('Energy',this)">🔥 Energy</button>
+    <button class="sect-btn hot"    onclick="setSector('Utilities',this)">🔥 Utilities</button>
+    <button class="sect-btn hot"    onclick="setSector('Finance',this)">🔥 Finance</button>
+    <button class="sect-btn"        onclick="setSector('Materials',this)">Materials</button>
+    <button class="sect-btn"        onclick="setSector('Industrial',this)">Industrial</button>
+    <button class="sect-btn"        onclick="setSector('Healthcare',this)">Healthcare</button>
+    <button class="sect-btn"        onclick="setSector('Consumer',this)">Consumer</button>
+    <button class="sect-btn"        onclick="setSector('Tech',this)">Tech</button>
+    <button class="sect-btn"        onclick="setSector('Real Estate',this)">Real Estate</button>
+    <button class="sect-btn"        onclick="setSector('ETF',this)">ETFs</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <div id="market-banner">
+    <div class="mb-title">⚠ Bear Market Mode Active</div>
+    <div class="mb-body">S&P 500 down ~9% from highs. Middle East conflict driving oil to $103+/barrel. Criteria loosened to catch stocks holding trends. Focus on 🔥 Energy, Utilities, Finance. Reduce position sizes.</div>
+  </div>
+
+  <div id="stats">
+    <div class="sc"><div class="sl">Scanned</div><div class="sv" id="s-scanned" style="color:var(--sub)">0</div></div>
+    <div class="sc"><div class="sl">Remaining</div><div class="sv" id="s-remain" style="color:var(--muted)">0</div></div>
+    <div class="sc"><div class="sl">Setups Found</div><div class="sv" id="s-found" style="color:var(--green)">0</div></div>
+    <div class="sc"><div class="sl">Pullbacks</div><div class="sv" id="s-pull" style="color:var(--green)">0</div></div>
+    <div class="sc"><div class="sl">Breakouts</div><div class="sv" id="s-break" style="color:var(--accent)">0</div></div>
+    <div class="sc"><div class="sl">Rel. Strength</div><div class="sv" id="s-rel" style="color:var(--orange)">0</div></div>
+  </div>
+
+  <div id="sort-row">
+    <span class="sort-label">Sort:</span>
+    <button class="sort-btn active" onclick="setSort('score',this)">Score u2193</button>
+    <button class="sort-btn" onclick="setSort('change',this)">Day % u2193</button>
+    <button class="sort-btn" onclick="setSort('vol',this)">Volume u2193</button>
+    <button class="sort-btn" onclick="setSort('price-hi',this)">Price u2193</button>
+    <button class="sort-btn" onclick="setSort('price-lo',this)">Price u2191</button>
+    <button class="sort-btn" onclick="setSort('alpha',this)">Au2013Z</button>
+    <span class="sort-label" style="margin-left:10px">Setup:</span>
+    <button class="sort-btn active" id="flt-all" onclick="setSetupFilter('all',this)">All</button>
+    <button class="sort-btn" id="flt-pullback" onclick="setSetupFilter('pullback',this)">Pullback</button>
+    <button class="sort-btn" id="flt-breakout" onclick="setSetupFilter('breakout',this)">Breakout</button>
+    <button class="sort-btn" id="flt-both" onclick="setSetupFilter('both',this)">u26a1 Both</button>
+  </div>
+
+  <div id="grid"></div>
+
+  <div id="empty">
+    <div class="ei">🔍</div>
+    <div class="et">Ready to scan</div>
+    <div class="es">
+      Hit <span>Scan 500 Stocks</span> to screen the universe.<br/>
+      Previous day's volume is used after hours so results are always meaningful.<br/><br/>
+      🔥 In the current market, filter by <strong>Energy</strong>, <strong>Utilities</strong>, <strong>Finance</strong>.<br/>
+      Click <strong>"Bring to Claude →"</strong> on any result for a full analysis.
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════
+//  UNIVERSE
+// ═══════════════════════════
+const UNIVERSE = {
+  'Energy':['XOM','CVX','COP','SLB','HAL','BKR','OXY','PXD','DVN','MRO','APA','FANG','CTRA','HES','EOG','PSX','VLO','MPC','DK','PBF','KMI','WMB','OKE','EPD','ET','MPLX','TRGP','LNG','CQP','XLE','OIH','XOP','GLNG','EQNR','RIG','NOV','CHK','AR','EQT','CNX','RRC','SWN','SM','MTDR','ESTE'],
+  'Utilities':['NEE','DUK','SO','AEP','EXC','SRE','ED','XEL','WEC','ES','ETR','FE','PPL','AEE','CMS','NI','LNT','EVRG','AVA','PNW','IDA','AWK','XLU','VPU','CEG','VST','NRG','PCG','EIX','D','CNP','ATO','NFG','SR','NWE','OTTR','MGE','BKH'],
+  'Finance':['JPM','GS','BAC','MS','WFC','C','AXP','BLK','SCHW','COF','USB','PNC','TFC','MTB','RF','CFG','HBAN','KEY','FITB','BK','STT','NTRS','TROW','V','MA','PYPL','FI','GPN','FISV','AIG','MET','PRU','AFL','ALL','CB','TRV','PGR','HIG','XLF','KRE','IAT','IBKR','RJF','LPL','SF','WRB','MKL','CINF','ERIE'],
+  'Materials':['LIN','APD','DD','DOW','LYB','WLK','EMN','OLN','SHW','PPG','IP','PKG','WRK','VMC','MLM','CRH','NUE','STLD','RS','AA','FCX','NEM','AEM','GLD','GDX','GDXJ','XLB','PICK','SLX','ALB','MP','LTHM','SQM','RGLD','WPM','FNV'],
+  'Industrial':['CAT','DE','BA','HON','UPS','GE','MMM','RTX','LMT','NOC','GD','AME','PH','ITW','EMR','ROK','FTV','CARR','OTIS','DOV','IR','XYL','GWW','MSC','FAST','ROP','IEX','IDEX','NVT','XLI','ITA','IYT','AXON','CACI','SAIC','BAH','LDOS','FLR','PWR','MTZ','PRIM','J','AECOM','CW','HEI','TDG','HEICO'],
+  'Healthcare':['UNH','LLY','JNJ','ABBV','MRK','PFE','TMO','ABT','DHR','ISRG','BMY','AMGN','GILD','REGN','VRTX','CVS','MCK','ABC','CAH','HUM','ELV','MOH','CNC','HCA','BAX','BDX','BSX','EW','MDT','SYK','ZBH','HOLX','IDXX','PODD','DXCM','INSP','XLV','IBB','XBI','IHF'],
+  'Consumer':['WMT','COST','HD','MCD','SBUX','NKE','TGT','LOW','TJX','DG','DLTR','KR','CLX','PG','CL','KMB','GIS','K','TSN','CAG','CPB','MKC','XLP','XLY','VDC','BKNG','MAR','HLT','RCL','CCL','NCLH','LVS','WYNN','MGM','DKNG','PLNT','LULU','ROST','BURL','FIVE'],
+  'Tech':['AAPL','MSFT','NVDA','GOOGL','META','AMZN','AMD','AVGO','ORCL','CRM','ADBE','INTC','QCOM','TXN','MU','AMAT','LRCX','KLAC','MRVL','NOW','PANW','CRWD','ZS','CSCO','IBM','ACN','XLK','QQQ','SOXX','IGV','NET','DDOG','SNOW','TEAM','WDAY','VEEV','INTU','ANSS','CDNS','SNPS','HPQ','DELL','STX','WDC','NTAP'],
+  'Real Estate':['AMT','PLD','CCI','EQIX','PSA','SPG','O','WELL','DLR','AVB','EQR','NNN','VICI','VNQ','IYR','XLRE','ARE','BXP','SLG','KIM','REG','FRT','CPT','MAA','UDR','ELS','SUI','AMH','INVH','CUBE','LSI','NSA','EXR','IIPR'],
+  'ETF':['SPY','IWM','DIA','VTI','GLD','SLV','USO','TLT','IEF','HYG','LQD','EEM','EFA','VEA','AGG','BND','SCHD','VIG','VYM','NOBL','DVY','ARKK','QQQ','XLK','XLF','XLE','XLV','XLI','XLB','XLU','XLRE','XLC','XLP','XLY','GDX','GDXJ','OIH','XOP']
+};
+
+const HOT = ['Energy','Utilities','Finance','Materials'];
+
+// Deduplicate
+const seen = new Set();
+const STOCKS = Object.entries(UNIVERSE)
+  .flatMap(([s,t]) => t.map(sym => ({symbol:sym, sector:s})))
+  .filter(({symbol}) => { if(seen.has(symbol)) return false; seen.add(symbol); return true; });
+
+// ═══════════════════════════
+//  MODES
+// ═══════════════════════════
+const MODES = {
+  bull:{
+    minPrice:10, minVol:500000,
+    pullbackBear:0.04, breakoutPct:0.95,
+    dayPctMin:0.3, dayPctMax:3.0,
+    tags:[
+      {t:'Price > $10',c:'ctag-bull'},{t:'Prev day vol > 500K',c:'ctag-bull'},
+      {t:'Day +0.3% to +3%',c:'ctag-bull'},{t:'Holding above open',c:'ctag-bull'},
+      {t:'OR near 52wk high + momentum',c:'ctag-bull'}
+    ]
+  },
+  bear:{
+    minPrice:5, minVol:200000,
+    pullbackBear:0.06, breakoutPct:0.88,
+    dayPctMin:0.1, dayPctMax:5.0,
+    tags:[
+      {t:'Price > $5',c:'ctag-bear'},{t:'Prev day vol > 200K',c:'ctag-bear'},
+      {t:'Positive day',c:'ctag-bear'},{t:'Hot sector bonus',c:'ctag-bear'},
+      {t:'Holding above open',c:'ctag-bear'},{t:'OR near multi-week high',c:'ctag-bear'}
+    ]
+  }
+};
+
+let FINNHUB_KEY='', mode='bear', sector='All', sortBy='score', setupFilter='all';
+let scanning=false, stopFlag=false, results=[];
+
+// Previous day volume cache — fetched once per symbol via basic metrics endpoint
+const volCache = {};
+
+// ═══════════════════════════
+//  SETUP
+// ═══════════════════════════
+function launch(){
+  const fk = document.getElementById('inp-fh').value.trim();
+  if(!fk){ alert('Please enter your Finnhub API key.'); return; }
+  FINNHUB_KEY = fk;
+  document.getElementById('setup').style.display = 'none';
+  setMode('bear');
+  setStatus('Ready · '+STOCKS.length+' stocks loaded', false);
+}
+
+function setMode(m){
+  mode = m;
+  const md = MODES[m];
+  document.getElementById('mbull').className = 'mode-btn'+(m==='bull'?' bull':'');
+  document.getElementById('mbear').className = 'mode-btn'+(m==='bear'?' bear':'');
+  document.getElementById('mode-desc').textContent = m==='bear'
+    ? 'Bear Market Mode — loosened criteria, hot sectors prioritized'
+    : 'Normal Market — standard swing trade criteria';
+  const ci = document.getElementById('crit-inner');
+  ci.innerHTML = `<span class="clabel">Filters (${m==='bear'?'Bear':'Normal'}):</span>`+
+    md.tags.map(t=>`<span class="ctag ${t.c}">${t.t}</span>`).join('');
+  document.getElementById('market-banner').style.display = m==='bear' ? 'block' : 'none';
+  if(results.length) renderGrid();
+}
+
+// ═══════════════════════════
+//  FINNHUB
+// ═══════════════════════════
+async function fhGet(path, params={}){
+  const url = new URL('https://finnhub.io/api/v1'+path);
+  url.searchParams.set('token', FINNHUB_KEY);
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
+  const res = await fetch(url.toString());
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  return res.json();
+}
+
+// Fetch previous day's volume from basic financials metric
+async function fetchPrevVol(symbol){
+  if(volCache[symbol] !== undefined) return volCache[symbol];
+  try{
+    const data = await fhGet('/stock/metric', { symbol, metric:'all' });
+    // Finnhub returns 10DayAverageTradingVolume in millions
+    const avgVol10d = data?.metric?.['10DayAverageTradingVolume'];
+    const vol = avgVol10d ? Math.round(avgVol10d * 1000000) : 0;
+    volCache[symbol] = vol;
+    return vol;
+  } catch(e){
+    volCache[symbol] = 0;
+    return 0;
+  }
+}
+
+// ═══════════════════════════
+//  EVALUATE
+// ═══════════════════════════
+function evaluate(sym, sector, q, prevDayVol){
+  if(!q || !q.c || q.c === 0) return null;
+
+  const m     = MODES[mode];
+  const price = q.c;
+  const open  = q.o || q.pc;
+  const high  = q.h;
+  const low   = q.l;
+  const prev  = q.pc;
+  const pct   = q.dp || 0;
+  const chg   = q.d  || 0;
+
+  // Volume: use live today if available, else previous day 10d average
+  const liveVol   = q.v || 0;
+  const vol       = liveVol > 0 ? liveVol : prevDayVol;
+  const volLabel  = liveVol > 0 ? 'Live vol' : '10d avg vol';
+  const isAfterHours = liveVol === 0;
+
+  // Base price filter
+  if(price < m.minPrice) return null;
+
+  // Day change filter
+  if(pct < m.dayPctMin) return null;
+  if(pct > m.dayPctMax) return null;
+
+  // Volume filter — hard minimum using prev day vol
+  if(vol > 0 && vol < m.minVol) return null;
+
+  // Intraday structure
+  const aboveOpen  = price >= (open * 0.999);
+  const rangePos   = (high > low) ? (price - low) / (high - low) : 0.5;
+  const offHighPct = high > 0 ? (high - price) / high * 100 : 99;
+  const orderly    = open > 0 ? (high - low) / open < 0.06 : true;
+
+  // In normal mode, must be above open
+  if(mode === 'bull' && !aboveOpen) return null;
+
+  const signals = [];
+  let score     = 0;
+  let setupType = null;
+  const isHot   = HOT.includes(sector);
+
+  // Hot sector bonus
+  if(isHot){ signals.push({t:'🔥 Hot sector ('+sector+')', c:'so'}); score += 2; }
+
+  // Pullback setup — positive day, price has come back near or below open (buy the dip)
+  const holdingGains = aboveOpen && rangePos >= 0.35;
+  const pulledBack   = !aboveOpen && pct > 0 && price >= open * (1 - m.pullbackBear);
+
+  if(holdingGains){
+    signals.push({t:'Holding gains above open', c:'sg'});
+    signals.push({t:'Day: +'+(pct.toFixed(2))+'%', c:'sg'});
+    score += 2; setupType = 'pullback';
+  } else if(pulledBack){
+    signals.push({t:'Positive day, dipped to open zone', c:'so'});
+    signals.push({t:'Intraday pullback entry opportunity', c:'so'});
+    score += 1; setupType = 'pullback';
+  }
+
+  // Breakout setup — strong momentum, near high of day
+  const strongDay = pct >= 1.5;
+  const nearHOD   = offHighPct < 2.0;
+  const nearHigh  = prev > 0 && price >= prev * m.breakoutPct;
+
+  if(strongDay && nearHOD){
+    signals.push({t:'Strong +'+pct.toFixed(2)+'% near high of day', c:'sg'});
+    score += 2;
+    setupType = setupType ? 'both' : 'breakout';
+  }
+  if(nearHigh && strongDay){
+    signals.push({t:'Near multi-week high with momentum', c:'sg'});
+    score += 1;
+    setupType = setupType ? 'both' : 'breakout';
+  }
+
+  // Must have a setup type by now
+  if(!setupType) return null;
+
+  // Volume signal
+  if(vol > 0){
+    signals.push({t:volLabel+': '+fmtVol(vol), c:'sg'});
+    score += 1;
+  } else {
+    signals.push({t:'Volume data unavailable — verify before trading', c:'so'});
+  }
+
+  // Orderly price action bonus
+  if(orderly){ signals.push({t:'Orderly price action (tight range)', c:'sg'}); score += 1; }
+
+  // Upper range bonus
+  if(rangePos >= 0.6){ signals.push({t:'Trading in upper range of day', c:'sg'}); score += 1; }
+
+  // Minimum score gate
+  if(score < 3) return null;
+
+  return {
+    symbol:sym, sector, price,
+    change:chg, changePct:pct,
+    open, high, low, prev,
+    vol, volLabel, isAfterHours,
+    setupType, signals, score, isHot
+  };
+}
+
+function fmtVol(v){
+  if(!v || v===0) return '—';
+  if(v >= 1000000) return (v/1000000).toFixed(1)+'M';
+  if(v >= 1000)    return (v/1000).toFixed(0)+'K';
+  return String(v);
+}
+
+// ═══════════════════════════
+//  SCAN ENGINE
+// ═══════════════════════════
+async function runScan(){
+  if(scanning) return;
+  scanning = true; stopFlag = false; results = [];
+
+  document.getElementById('btn-scan').style.display = 'none';
+  document.getElementById('btn-stop').style.display = 'inline-flex';
+  document.getElementById('stats').style.display    = 'flex';
+  document.getElementById('sort-row').style.display = 'flex';
+  document.getElementById('empty').style.display    = 'none';
+  document.getElementById('prog-wrap').style.display = 'block';
+  document.getElementById('grid').innerHTML = '';
+
+  ['s-scanned','s-remain','s-found','s-pull','s-break','s-rel'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.textContent = '0';
+  });
+
+  let scanned=0, found=0, pulls=0, breaks=0, rel=0;
+  const total = STOCKS.length;
+
+  // Prioritize hot sectors in bear mode
+  const ordered = mode === 'bear'
+    ? [...STOCKS.filter(s=>HOT.includes(s.sector)), ...STOCKS.filter(s=>!HOT.includes(s.sector))]
+    : STOCKS;
+
+  // Detect if market is open (rough check — will refine from first quote)
+  let marketOpen = false;
+
+  const BATCH = 4; // conservative to stay under 60 calls/min (2 calls per stock = 8 calls/batch)
+  for(let i=0; i<ordered.length; i+=BATCH){
+    if(stopFlag) break;
+    const batch = ordered.slice(i, i+BATCH);
+
+    await Promise.all(batch.map(async ({symbol, sector}) => {
+      if(stopFlag) return;
+      try{
+        // Fetch quote and previous day volume in parallel
+        const [q, prevVol] = await Promise.all([
+          fhGet('/quote', {symbol}),
+          fetchPrevVol(symbol)
+        ]);
+
+        scanned++;
+        setStat('s-scanned', scanned, 'var(--sub)');
+        setStat('s-remain',  total-scanned, 'var(--muted)');
+        updateProgress(scanned, total, symbol);
+
+        // Detect market hours from live volume
+        if(q.v > 0) marketOpen = true;
+
+        const setup = evaluate(symbol, sector, q, prevVol);
+        if(!setup) return;
+
+        found++;
+        if(setup.setupType==='pullback')     pulls++;
+        else if(setup.setupType==='breakout') breaks++;
+        else if(setup.setupType==='both')    { pulls++; breaks++; }
+        else                                  rel++;
+
+        setStat('s-found', found,  'var(--green)');
+        setStat('s-pull',  pulls,  'var(--green)');
+        setStat('s-break', breaks, 'var(--accent)');
+        setStat('s-rel',   rel,    'var(--orange)');
+
+        results.push(setup);
+        renderGrid();
+      } catch(e){
+        scanned++;
+        setStat('s-scanned', scanned, 'var(--sub)');
+        setStat('s-remain',  total-scanned, 'var(--muted)');
+        updateProgress(scanned, total, symbol);
+      }
+    }));
+
+    // Show after-hours note if no live volume detected after first batch
+    if(i === 0 && !marketOpen){
+      document.getElementById('vol-note').style.display = 'block';
+    }
+
+    if(!stopFlag && i+BATCH < ordered.length) await sleep(1100);
+  }
+
+  scanning = false;
+  document.getElementById('btn-scan').style.display  = 'inline-flex';
+  document.getElementById('btn-stop').style.display  = 'none';
+  document.getElementById('prog-wrap').style.display = 'none';
+
+  const msg = stopFlag
+    ? `Stopped · ${scanned} scanned · ${found} setups found`
+    : `Complete · ${total} scanned · ${found} setups · ${new Date().toLocaleTimeString()}`;
+  setStatus(msg, true);
+
+  if(results.length === 0){
+    document.getElementById('empty').style.display = 'block';
+    document.getElementById('empty').innerHTML = `
+      <div class="ei">🔍</div>
+      <div class="et">No setups found</div>
+      <div class="es">Nothing qualified right now. Try Bear Market Mode, or run during market hours for the most accurate results.</div>`;
+  }
+}
+
+function stopScan(){ stopFlag = true; }
+
+// ═══════════════════════════
+//  RENDER
+// ═══════════════════════════
+function renderGrid(){
+  const sorted = [...results].sort((a,b) => {
+    if(sortBy==='score')    return b.score - a.score;
+    if(sortBy==='change')   return b.changePct - a.changePct;
+    if(sortBy==='vol')      return b.vol - a.vol;
+    if(sortBy==='price-hi') return b.price - a.price;
+    if(sortBy==='price-lo') return a.price - b.price;
+    if(sortBy==='alpha')    return a.symbol.localeCompare(b.symbol);
+    return 0;
+  });
+
+  // Apply sector filter
+  const bySector = sector==='All' ? sorted : sorted.filter(r => r.sector===sector);
+  // Apply setup type filter
+  const filtered = setupFilter==='all' ? bySector : bySector.filter(r => r.setupType===setupFilter || (setupFilter==='both' && r.setupType==='both'));
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  filtered.forEach(s => {
+    const isUp = s.changePct >= 0;
+    const pc   = isUp ? 'var(--green)' : 'var(--red)';
+    const chStr= (isUp?'+':'')+s.change.toFixed(2)+' ('+(isUp?'+':'')+s.changePct.toFixed(2)+'%)';
+
+    const clsMap   = {pullback:'tp', breakout:'tb', both:'tw', relstrength:'tr'};
+    const badgeMap = {
+      pullback:    `<span class="badge bp">Pullback</span>`,
+      breakout:    `<span class="badge bb">Breakout</span>`,
+      both:        `<span class="badge bw">⚡ Both</span>`,
+      relstrength: `<span class="badge br">Rel. Str</span>`
+    };
+
+    const sigs = s.signals.map(sg =>
+      `<div class="sigrow"><div class="sdot ${sg.c}"></div><span>${sg.t}</span></div>`
+    ).join('');
+
+    const volDisplay = s.vol > 0
+      ? `${s.volLabel}: ${fmtVol(s.vol)}${s.isAfterHours ? ' (prev day)' : ''}`
+      : 'Volume: verify before trading';
+
+    const claudeMsg = `Analyze $${s.symbol} for a swing trade entry.
+
+Sector: ${s.sector}${s.isHot?' 🔥 (hot sector)':''}
+Setup type: ${s.setupType}
+Current price: $${s.price.toFixed(2)}
+Day change: ${chStr}
+Open: $${s.open.toFixed(2)} | High: $${s.high.toFixed(2)} | Low: $${s.low.toFixed(2)}
+Prev close: $${s.prev.toFixed(2)}
+Volume: ${fmtVol(s.vol)} (${s.volLabel})
+Scanner score: ${s.score}
+Signals: ${s.signals.map(x=>x.t).join(' | ')}
+
+Market context: S&P 500 in correction (-9% from highs), 5 straight weekly losses, Middle East conflict driving oil to ~$103/barrel. Energy, Utilities, Finance are strongest sectors.
+
+Give me: BUY / WAIT / AVOID verdict, ideal entry price, stop loss, price target, and expected hold time.`;
+
+    const div = document.createElement('div');
+    div.className = `rc ${clsMap[s.setupType]||'tp'}`;
+    div.innerHTML = `
+      <div class="rch">
+        <div class="rl">
+          <div class="rsym">${s.symbol}</div>
+          <div class="rsec">${s.sector}${s.isHot?' 🔥':''}</div>
+        </div>
+        <div>${badgeMap[s.setupType]||''}</div>
+      </div>
+      <div class="rprice" style="color:${pc}">$${s.price.toFixed(2)}</div>
+      <div class="rchg"   style="color:${pc}">${chStr}</div>
+      <div class="rvol">${volDisplay}</div>
+      <div class="rsigs">${sigs}</div>
+      <div class="rfooter">
+        <div class="rscore">Score <span>${s.score}</span></div>
+        <button class="cbtn" onclick="copyClaud(this,\`${claudeMsg.replace(/`/g,'\\`').replace(/\n/g,'\\n')}\`)">Bring to Claude →</button>
+      </div>`;
+    grid.appendChild(div);
+  });
+
+  if(filtered.length === 0 && results.length > 0){
+    grid.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:16px 0">No ${sector} setups found yet. Try "All" or another sector.</div>`;
+  }
+}
+
+function copyClaud(btn, raw){
+  const text = raw.replace(/\\n/g,'\n');
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copied!'; btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent='Bring to Claude →'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function setSector(s, el){
+  sector = s;
+  document.querySelectorAll('.sect-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
+}
+
+function setSort(by, el){
+  sortBy = by;
+  // Only deactivate sort buttons (not setup filter buttons)
+  document.querySelectorAll('#sort-row .sort-btn:not([id^="flt-"])').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
+}
+
+function setSetupFilter(f, el){
+  setupFilter = f;
+  document.querySelectorAll('[id^="flt-"]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
+}
+
+function clearAll(){
+  results = [];
+  document.getElementById('grid').innerHTML = '';
+  document.getElementById('stats').style.display    = 'none';
+  document.getElementById('sort-row').style.display = 'none';
+  document.getElementById('vol-note').style.display = 'none';
+  setupFilter = 'all';
+  document.querySelectorAll('[id^="flt-"]').forEach(b => b.classList.remove('active'));
+  const fltAll = document.getElementById('flt-all'); if(fltAll) fltAll.classList.add('active');
+  document.getElementById('empty').style.display    = 'block';
+  document.getElementById('empty').innerHTML = `
+    <div class="ei">🔍</div><div class="et">Ready to scan</div>
+    <div class="es">Hit <span>Scan 500 Stocks</span> to screen the universe.<br/>Previous day volume is always available — results are meaningful any time.<br/><br/>🔥 Focus on <strong>Energy</strong>, <strong>Utilities</strong>, <strong>Finance</strong> in the current market.</div>`;
+  ['s-scanned','s-remain','s-found','s-pull','s-break','s-rel'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.textContent = '0';
+  });
+  setStatus('Ready · '+STOCKS.length+' stocks loaded', false);
+}
+
+function setStatus(t, green){
+  document.getElementById('st').textContent = t;
+  document.getElementById('sdot').className = 'dot'+(green?' live':'');
+}
+function setStat(id, val, color){
+  const el = document.getElementById(id);
+  if(el){ el.textContent = val; el.style.color = color; }
+}
+function updateProgress(done, total, sym){
+  const pct = Math.round((done/total)*100);
+  document.getElementById('prog-inner').style.width = pct+'%';
+  document.getElementById('prog-label').textContent = `Scanning ${sym} · ${done} of ${total} · ${pct}%`;
+  document.getElementById('sdot').className = 'dot scanning';
+  document.getElementById('st').textContent = `Scanning ${done}/${total} — ${sym}`;
+}
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+</script>
+</body>
+</html>
