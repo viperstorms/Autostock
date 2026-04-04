@@ -118,8 +118,18 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
   <div class="logo">Trade <span>Calendar</span></div>
   <div class="logo-sub">// earnings · exits · reviews</div>
 
+  <!-- Paste section -->
   <div class="form-section">
-    <div class="form-title">Add Stock</div>
+    <div class="form-title">Paste from Claude</div>
+    <div class="field">
+      <label>Paste CALENDAR block here</label>
+      <textarea id="paste-cal" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px;font-size:11px;font-family:'DM Mono',monospace;outline:none;resize:vertical;min-height:90px;" placeholder="CALENDAR&#10;Symbol: ETR&#10;Verdict: BUY&#10;Earnings: 2026-04-29&#10;Exit by: 2026-04-25&#10;Entry start: 2026-04-07&#10;Entry end: 2026-04-10&#10;Review: 2026-04-09"></textarea>
+    </div>
+    <button class="btn btn-add" onclick="pasteAdd()">+ Add from Paste</button>
+  </div>
+
+  <div class="form-section">
+    <div class="form-title">Manual Entry</div>
 
     <div class="field">
       <label>Symbol</label>
@@ -215,6 +225,42 @@ function preload(){
 
 // ── Storage ──
 function save(){ localStorage.setItem('tradeCalStocks', JSON.stringify(stocks)); }
+
+// ── Paste add ──
+function pasteAdd(){
+  const raw = document.getElementById('paste-cal').value.trim();
+  if(!raw){ alert('Paste a CALENDAR block first.'); return; }
+
+  const lines = raw.split('\n');
+  const data = {};
+  lines.forEach(line => {
+    const idx = line.indexOf(':');
+    if(idx === -1) return;
+    const key = line.slice(0,idx).trim().toLowerCase().replace(/\s+/g,'_');
+    const val = line.slice(idx+1).trim();
+    data[key] = val;
+  });
+
+  if(!data.symbol){ alert('Could not find Symbol in the pasted block.'); return; }
+
+  const s = {
+    id: Date.now().toString(),
+    sym:        data.symbol.toUpperCase(),
+    verdict:    (data.verdict || 'wait').toLowerCase(),
+    earnings:   data.earnings || '',
+    exit:       data['exit_by'] || data.exit || '',
+    entryStart: data['entry_start'] || '',
+    entryEnd:   data['entry_end'] || '',
+    review:     data.review || '',
+  };
+
+  // Remove existing entry for same symbol to avoid duplicates
+  stocks = stocks.filter(st => st.sym !== s.sym);
+  stocks.push(s);
+  save(); render();
+  document.getElementById('paste-cal').value = '';
+  showToast();
+}
 
 // ── Add stock ──
 function addStock(){
