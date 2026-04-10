@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Low-Cap Scanner | Autostock</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0c10; --panel: #0f1318; --border: #1e2530;
+    --accent: #00e5ff; --accent2: #ff6b35; --accent3: #39ff14;
+    --warn: #ffcc00; --red: #ff3d57; --muted: #4a5568;
+    --text: #c8d6e5; --text-dim: #6b7a8d;
+    --mono: 'Share Tech Mono', monospace;
+    --cond: 'Barlow Condensed', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+
+  /* NAV */
+  nav { position: sticky; top: 0; z-index: 100; background: rgba(10,12,16,0.95); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; height: 48px; }
+  .nav-brand { font-family: var(--cond); font-weight: 700; font-size: 18px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-right: 32px; text-decoration: none; }
+  nav a { color: var(--text-dim); text-decoration: none; font-family: var(--cond); font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 0 14px; height: 48px; display: flex; align-items: center; border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s; }
+  nav a:hover { color: var(--text); }
+  nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  main { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  .page-title { font-family: var(--cond); font-size: 28px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--accent2); }
+  .page-title span { color: var(--text-dim); font-size: 13px; font-weight: 400; letter-spacing: 1px; display: block; margin-top: 2px; }
+  .last-scan { font-size: 11px; color: var(--text-dim); text-align: right; }
+
+  /* FILTER BAR */
+  .filter-bar { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 20px; }
+  .filter-group { display: flex; flex-direction: column; gap: 5px; }
+  .filter-group label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); }
+  .filter-group input, .filter-group select { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 7px 10px; width: 130px; outline: none; transition: border-color 0.2s; }
+  .filter-group input:focus, .filter-group select:focus { border-color: var(--accent); }
+  .filter-group select option { background: #0f1318; }
+  .btn-scan { background: var(--accent2); color: #000; border: none; border-radius: 4px; font-family: var(--cond); font-weight: 700; font-size: 15px; letter-spacing: 2px; text-transform: uppercase; padding: 8px 28px; cursor: pointer; transition: opacity 0.2s, transform 0.1s; align-self: flex-end; white-space: nowrap; }
+  .btn-scan:hover { opacity: 0.85; }
+  .btn-scan:active { transform: scale(0.97); }
+  .btn-scan:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* PROGRESS */
+  .progress-wrap { display: none; margin-bottom: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; height: 4px; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); width: 0%; transition: width 0.3s; border-radius: 4px; }
+
+  /* PHASE LOG */
+  .phase-log { min-height: 22px; margin-bottom: 14px; font-size: 11px; color: var(--text-dim); letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px; }
+  .phase-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .phase-dot.done { background: var(--accent3); animation: none; }
+  .phase-dot.hidden { display: none; }
+
+  /* STATUS */
+  .status-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; font-size: 12px; flex-wrap: wrap; }
+  .stat-pill { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 4px 14px; display: flex; align-items: center; gap: 8px; }
+  .stat-pill .label { color: var(--text-dim); }
+  .stat-pill .value { color: var(--accent); font-weight: bold; }
+  .source-tag { padding: 3px 10px; border-radius: 4px; font-size: 10px; font-family: var(--cond); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; border: 1px solid; margin-left: auto; display: flex; gap: 6px; }
+  .src-dynamic { color: var(--accent2); border-color: var(--accent2); background: rgba(255,107,53,0.08); }
+  .src-static  { color: var(--accent);  border-color: var(--accent);  background: rgba(0,229,255,0.08); }
+
+  /* TABLE */
+  .table-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .table-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 8px; }
+  .table-toolbar-title { font-family: var(--cond); font-size: 13px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); }
+  .sort-hint { font-size: 10px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: rgba(0,229,255,0.04); }
+  th { padding: 10px 14px; text-align: left; font-family: var(--cond); font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; transition: color 0.15s; }
+  th:hover { color: var(--accent); }
+  th.sorted { color: var(--accent); }
+  th .sa { margin-left: 4px; opacity: 0.4; }
+  th.sorted .sa { opacity: 1; }
+  tbody tr { border-bottom: 1px solid rgba(30,37,48,0.6); transition: background 0.15s; cursor: pointer; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(0,229,255,0.04); }
+  td { padding: 11px 14px; vertical-align: middle; white-space: nowrap; }
+  .td-ticker { font-family: var(--cond); font-size: 16px; font-weight: 700; letter-spacing: 1px; color: var(--accent); }
+  .td-src { font-size: 9px; font-family: var(--cond); letter-spacing: 0.5px; margin-top: 2px; }
+  .td-src.dyn { color: var(--accent2); }
+  .td-src.sta { color: var(--text-dim); }
+  .td-price { color: var(--text); font-weight: bold; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+  .badge.up   { background: rgba(57,255,20,0.12);  color: var(--accent3); }
+  .badge.down { background: rgba(255,61,87,0.12); color: var(--red); }
+  .rvol-wrap { display: flex; align-items: center; gap: 8px; }
+  .rvol-bg { width: 72px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+  .rvol-fill { height: 100%; border-radius: 3px; }
+  .rvol-val { font-size: 12px; min-width: 34px; }
+  .rv-hot { color: var(--accent2); } .rv-ok { color: var(--warn); } .rv-low { color: var(--text-dim); }
+  .sig-cell { display: flex; gap: 4px; flex-wrap: wrap; }
+  .sig { font-size: 9px; font-family: var(--cond); font-weight: 700; letter-spacing: 1px; padding: 2px 7px; border-radius: 3px; text-transform: uppercase; border: 1px solid; }
+  .sig.mo  { color: var(--accent2); border-color: var(--accent2); background: rgba(255,107,53,0.1); }
+  .sig.rv  { color: var(--accent);  border-color: var(--accent);  background: rgba(0,229,255,0.08); }
+  .sig.hv  { color: var(--accent3); border-color: var(--accent3); background: rgba(57,255,20,0.08); }
+  .sig.nl  { color: var(--warn);    border-color: var(--warn);    background: rgba(255,204,0,0.08); }
+  .sig.dyn { color: var(--accent2); border-color: var(--accent2); background: rgba(255,107,53,0.06); }
+
+  .table-empty { padding: 60px 20px; text-align: center; color: var(--text-dim); }
+  .table-empty .big { font-size: 36px; margin-bottom: 12px; }
+  .table-empty .msg { font-family: var(--cond); font-size: 16px; letter-spacing: 1px; color: var(--muted); }
+
+  .disclaimer { margin-top: 24px; font-size: 10px; color: var(--muted); letter-spacing: 0.3px; line-height: 1.7; border-left: 2px solid var(--border); padding-left: 12px; }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: 440px; max-width: 95vw; padding: 24px; position: relative; animation: popIn 0.18s ease; }
+  @keyframes popIn { from{transform:scale(0.92);opacity:0} to{transform:scale(1);opacity:1} }
+  .modal-close { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; }
+  .modal-ticker { font-family: var(--cond); font-size: 32px; font-weight: 700; color: var(--accent); letter-spacing: 2px; margin-bottom: 2px; }
+  .modal-sub { font-size: 11px; color: var(--text-dim); margin-bottom: 18px; }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .mstat { display: flex; flex-direction: column; gap: 3px; }
+  .mstat .lbl { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
+  .mstat .val { font-size: 16px; color: var(--text); font-weight: bold; }
+  .modal-actions { display: flex; gap: 10px; }
+  .btn-j { flex:1; background: rgba(0,229,255,0.1); border: 1px solid var(--accent); color: var(--accent); border-radius: 4px; font-family: var(--cond); font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 9px; cursor: pointer; text-decoration: none; text-align: center; display: inline-block; transition: background 0.2s; }
+  .btn-j:hover { background: rgba(0,229,255,0.2); }
+  .btn-w { flex:1; background: rgba(255,107,53,0.1); border: 1px solid var(--accent2); color: var(--accent2); border-radius: 4px; font-family: var(--cond); font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 9px; cursor: pointer; transition: background 0.2s; }
+  .btn-w:hover { background: rgba(255,107,53,0.2); }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="index.html">⚡ Autostock</a>
+  <a href="swing-scanner.html">Swing Scanner</a>
+  <a href="lowcap-scanner.html" class="active">Low-Cap Scanner</a>
+  <a href="watchlist.html">Watchlist</a>
+  <a href="entry-tracker.html">Entry Tracker</a>
+  <a href="trade-journal.html">Journal</a>
+  <a href="trade-calendar.html">Calendar</a>
+</nav>
+
+<main>
+  <div class="page-header">
+    <div>
+      <div class="page-title">
+        Low-Cap Scanner
+        <span>Live via Finnhub · Dynamic Movers + 350-Ticker Universe · $5–$10</span>
+      </div>
+    </div>
+    <div class="last-scan" id="lastScanTime">—</div>
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Price Min ($)</label>
+      <input type="number" id="priceMin" value="5.00" step="0.50" min="0" />
+    </div>
+    <div class="filter-group">
+      <label>Price Max ($)</label>
+      <input type="number" id="priceMax" value="10.00" step="0.50" min="0" />
+    </div>
+    <div class="filter-group">
+      <label>Min Volume (M)</label>
+      <input type="number" id="minVol" value="1" step="0.5" min="0" />
+    </div>
+    <div class="filter-group">
+      <label>Min |Change %|</label>
+      <input type="number" id="minChange" value="3" step="0.5" />
+    </div>
+    <div class="filter-group">
+      <label>Min RVOL</label>
+      <input type="number" id="minRvol" value="1.5" step="0.1" min="0" />
+    </div>
+    <div class="filter-group">
+      <label>52W Low Proximity</label>
+      <select id="lowProx">
+        <option value="any">Any</option>
+        <option value="25">Within 25%</option>
+        <option value="50">Within 50%</option>
+        <option value="75">Within 75%</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Direction</label>
+      <select id="direction">
+        <option value="both">Both</option>
+        <option value="up">Gainers Only</option>
+        <option value="down">Losers Only</option>
+      </select>
+    </div>
+    <button class="btn-scan" id="btnScan" onclick="runScan()">⟳ Scan</button>
+  </div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div class="phase-log" id="phaseLog">
+    <span class="phase-dot hidden" id="phaseDot"></span>
+    <span id="phaseText"></span>
+  </div>
+
+  <div class="status-bar">
+    <div class="stat-pill"><span class="label">Results</span><span class="value" id="statResults">—</span></div>
+    <div class="stat-pill"><span class="label">Scanned</span><span class="value" id="statScanned">—</span></div>
+    <div class="stat-pill"><span class="label">Dynamic Seeds</span><span class="value" id="statDynamic">—</span></div>
+    <div class="stat-pill"><span class="label">Static Universe</span><span class="value" id="statStatic">—</span></div>
+    <div class="source-tag">
+      <span class="src-dynamic">⚡ Movers</span>
+      <span class="src-static">+ Static</span>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-toolbar">
+      <span class="table-toolbar-title">Scan Results</span>
+      <span class="sort-hint">Click headers to sort · Click row for detail · ⚡ = live mover seed</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th data-col="ticker"    onclick="sortBy('ticker')">Ticker <span class="sa">↕</span></th>
+          <th data-col="price"     onclick="sortBy('price')">Price <span class="sa">↕</span></th>
+          <th data-col="changePct" onclick="sortBy('changePct')">Change % <span class="sa">↕</span></th>
+          <th data-col="volume"    onclick="sortBy('volume')">Volume <span class="sa">↕</span></th>
+          <th data-col="rvol"      onclick="sortBy('rvol')">RVOL <span class="sa">↕</span></th>
+          <th data-col="low52pct"  onclick="sortBy('low52pct')">52W Low % <span class="sa">↕</span></th>
+          <th>Signals</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody">
+        <tr><td colspan="7">
+          <div class="table-empty">
+            <div class="big">⟳</div>
+            <div class="msg">Click Scan to fetch live movers + check universe</div>
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="disclaimer">
+    ⚠ Live data via Finnhub API. Phase 1 seeds today's market movers dynamically. Phase 2 checks the 350-ticker static universe. RVOL uses 10-day avg volume (falls back to prev-close volume after hours). Not financial advice — verify all setups before trading.
+  </div>
+</main>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div class="modal-ticker" id="mTicker">—</div>
+    <div class="modal-sub" id="mSub">—</div>
+    <div class="modal-grid">
+      <div class="mstat"><span class="lbl">Price</span><span class="val" id="mPrice">—</span></div>
+      <div class="mstat"><span class="lbl">Change %</span><span class="val" id="mChange">—</span></div>
+      <div class="mstat"><span class="lbl">Volume</span><span class="val" id="mVolume">—</span></div>
+      <div class="mstat"><span class="lbl">RVOL</span><span class="val" id="mRvol">—</span></div>
+      <div class="mstat"><span class="lbl">52W Low</span><span class="val" id="mLow52">—</span></div>
+      <div class="mstat"><span class="lbl">52W High</span><span class="val" id="mHigh52">—</span></div>
+      <div class="mstat"><span class="lbl">Prev Close</span><span class="val" id="mPrevC">—</span></div>
+      <div class="mstat"><span class="lbl">Source</span><span class="val" id="mSource">—</span></div>
+    </div>
+    <div class="modal-actions">
+      <a class="btn-j" id="mJournalLink" href="trade-journal.html" target="_blank">+ Journal</a>
+      <button class="btn-w" onclick="addToWatchlist()">+ Watchlist</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_KEY = 'd6s1gihr01qpss2i0kegd6s1gihr01qpss2i0kf0';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATIC UNIVERSE — 350 tickers organized by sector, historically $5–$15 range
+// ─────────────────────────────────────────────────────────────────────────────
+const STATIC_UNIVERSE = [
+  // ── Energy / Oil & Gas
+  'NOV','RIG','OII','PTEN','NEXT','VTLE','CDEV','FTSI','NINE','PUMP',
+  'KLXE','SND','WTTR','AMPY','BATL','PBF','CRC','GPRE','PARR','REX',
+  'SYNL','TRMD','GLOG','CTRG','HMLP','SRLP','KNOP','DKL','CAPL','MMLP',
+
+  // ── Utilities / Clean Energy
+  'ETR','CMS','NI','OGS','SPKE','ELLO','GENIE','MGEE','SDGE','NWPX',
+  'CLNE','AMRC','REGI','GEVO','OPAL','RRUN','BLNK','EVGO','CHPT','VLTA',
+  'PTRA','GOEV','REE','HYLN','WKHS','IDEX','AYRO','SOLO','ARVL','ELMS',
+
+  // ── Finance / Insurance / REIT
+  'HOPE','BANC','PFBC','CASH','BSVN','BUSE','FBMS','HTLF','NBHC','TBNK',
+  'MFIN','ONBK','CFFI','NWBI','ESSA','KRNY','BRKL','TCBK','FFBC','FXNC',
+  'IVR','ARR','MFA','NYMT','MITT','TWO','CHMI','EFC','GPMT','EARN',
+  'MPW','SAFE','GOOD','HASI','EPRT','STWD','BXMT','ARI','RWT','LADR',
+
+  // ── Biotech / Pharma / Healthcare
+  'SNDL','CLOV','OCGN','BCRX','AGEN','IBRX','GOVX','ENVB','CTXR','APRE',
+  'NKTR','ARCT','VBIV','ATHA','LYRA','PRAXIS','INVA','CYCN','APTO','DARE',
+  'CALT','AVCT','EDTX','VERB','HPNN','KALA','PRTY','XOMA','ADMA','GNPX',
+  'MYMD','VNDA','RIGL','AKBA','CMPX','AKRO','CTIC','ACRS','HRMY','OLMA',
+  'LXRX','PRTK','CLVS','SUPN','AVDL','NEOS','KMPH','SPPI','FWRG','HALO',
+
+  // ── Technology / Semiconductors
+  'PXLW','ACMR','JFIN','KPLT','MDJH','GFAI','HIVE','BTBT','CIFR','EBON',
+  'BNGO','INPX','VERB','XELA','CLSK','MARA','RIOT','CIFS','IDEX','SENS',
+  'NXTP','WISA','IMPP','ATER','BKKT','MIGI','IBRX','PNTM','PLBY','RDBX',
+  'VUZI','KOSS','EXPR','NAKD','BBIG','PTRA','STPK','AJAX','COVA','GX',
+
+  // ── EV / Mobility / Future Tech
+  'NKLA','SPCE','LCID','RIVN','GOEV','FSR','RIDE','SOLO','AYRO','ARVL',
+  'REE','HYLN','EVGO','BLNK','CHPT','VLTA','WKHS','IDEX','KNDI','KANDI',
+  'MULN','FFIE','HYZN','HYRE','LOTZ','DRVN','OPEN','OFFERPAD','OPAD','PRPB',
+
+  // ── Chinese ADRs
+  'NIO','XPEV','LI','BILI','DOYU','HUYA','MOMO','TIGR','GOTU','LXEH',
+  'JMIA','YSX','VNET','QFIN','FINV','IQ','YY','CODA','NEW','JFIN',
+
+  // ── Consumer / Retail
+  'CATO','EXPR','BBBY','PRTY','VVPR','TLYS','HOFT','BOOT','JOANN','FRAN',
+  'SMRT','TUYA','VNET','GOTU','POSH','REAL','LMND','ROOT','GOCO','AMWL',
+
+  // ── Industrials / Defense / Government
+  'BAH','SAIC','CACI','KEYW','DRS','MANT','LDOS','CSRA','ICF','SERV',
+  'TDY','MRCY','DLB','KTOS','VSE','PAE','AMSYS','JCOM','CLFD','PCTY',
+
+  // ── Materials / Mining / Commodities
+  'NOG','SM','CDEV','VTLE','BATL','AMPY','FTSI','RIG','OII','PUMP',
+  'GPL','HL','EXK','MAG','PAAS','SILV','SVM','SSRM','AG','CDE',
+];
+
+// Deduplicate
+const UNIVERSE = [...new Set(STATIC_UNIVERSE)];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+let scanResults = [];
+let sortCol = 'changePct';
+let sortDir = -1;
+let currentModal = null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+const fmtP   = v => v != null ? '$' + v.toFixed(2) : '—';
+const fmtPct = v => v != null ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%' : '—';
+const fmtVol = v => {
+  if (v == null) return '—';
+  if (v >= 1e9) return (v/1e9).toFixed(2)+'B';
+  if (v >= 1e6) return (v/1e6).toFixed(2)+'M';
+  if (v >= 1e3) return (v/1e3).toFixed(0)+'K';
+  return String(v);
+};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function setPhase(msg, done = false) {
+  document.getElementById('phaseText').textContent = msg;
+  const dot = document.getElementById('phaseDot');
+  dot.classList.remove('hidden');
+  dot.classList.toggle('done', done);
+}
+
+function setProgress(pct) {
+  document.getElementById('progressBar').style.width = pct + '%';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Finnhub fetchers
+// ─────────────────────────────────────────────────────────────────────────────
+async function fetchQuote(ticker) {
+  const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${API_KEY}`);
+  if (!r.ok) return null;
+  const d = await r.json();
+  return (d && d.c > 0) ? d : null;
+}
+
+async function fetchMetric(ticker) {
+  const r = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${ticker}&metric=all&token=${API_KEY}`);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+// Finnhub news endpoint gives us a sense of most-discussed tickers today
+// We also use symbol search with high-activity proxies
+async function fetchDynamicSeeds() {
+  const seeds = new Set();
+
+  // Method 1: Finnhub market news — extract tickers mentioned
+  try {
+    const r = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${API_KEY}`);
+    if (r.ok) {
+      const articles = await r.json();
+      // Extract any ticker-like tokens from related field
+      for (const a of articles.slice(0, 20)) {
+        if (a.related) {
+          a.related.split(',').forEach(t => {
+            const s = t.trim().toUpperCase();
+            if (s.length >= 1 && s.length <= 5 && /^[A-Z]+$/.test(s)) seeds.add(s);
+          });
+        }
+      }
+    }
+  } catch {}
+  await sleep(250);
+
+  // Method 2: Finnhub earnings surprise — recently active stocks
+  try {
+    const today = new Date();
+    const from = new Date(today); from.setDate(from.getDate() - 7);
+    const fmt = d => d.toISOString().slice(0,10);
+    const r = await fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${fmt(from)}&to=${fmt(today)}&token=${API_KEY}`);
+    if (r.ok) {
+      const d = await r.json();
+      if (d.earningsCalendar) {
+        d.earningsCalendar.slice(0, 60).forEach(e => {
+          const s = (e.symbol||'').toUpperCase();
+          if (s.length >= 1 && s.length <= 5 && /^[A-Z]+$/.test(s)) seeds.add(s);
+        });
+      }
+    }
+  } catch {}
+  await sleep(250);
+
+  // Method 3: Finnhub IPO calendar (recent listings tend to be volatile)
+  try {
+    const today = new Date();
+    const from = new Date(today); from.setMonth(from.getMonth() - 3);
+    const fmt = d => d.toISOString().slice(0,10);
+    const r = await fetch(`https://finnhub.io/api/v1/calendar/ipo?from=${fmt(from)}&to=${fmt(today)}&token=${API_KEY}`);
+    if (r.ok) {
+      const d = await r.json();
+      if (d.ipoCalendar) {
+        d.ipoCalendar.forEach(e => {
+          const s = (e.symbol||'').toUpperCase();
+          if (s.length >= 1 && s.length <= 5 && /^[A-Z]+$/.test(s)) seeds.add(s);
+        });
+      }
+    }
+  } catch {}
+
+  return [...seeds].filter(s => !UNIVERSE.includes(s)); // only net-new tickers
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Core ticker evaluation
+// ─────────────────────────────────────────────────────────────────────────────
+async function evaluateTicker(ticker, isDynamic, filters) {
+  try {
+    const [quote, metric] = await Promise.all([fetchQuote(ticker), fetchMetric(ticker)]);
+    if (!quote) return null;
+
+    const price    = quote.c;
+    const prevC    = quote.pc || price;
+    const chgPct   = prevC ? ((price - prevC) / prevC) * 100 : 0;
+    const volume   = quote.v || 0;
+    const avgVol   = metric?.metric?.['10DayAverageTradingVolume']
+                     ? metric.metric['10DayAverageTradingVolume'] * 1e6 : null;
+    const rvol     = avgVol && avgVol > 0 ? volume / avgVol : (prevC > 0 ? volume / (quote.v || 1) : null);
+    const low52    = metric?.metric?.['52WeekLow']  ?? null;
+    const high52   = metric?.metric?.['52WeekHigh'] ?? null;
+    const low52pct = low52 && price > 0 ? ((price - low52) / low52) * 100 : null;
+
+    // Apply filters
+    if (price < filters.priceMin || price > filters.priceMax) return null;
+    if (volume < filters.minVol) return null;
+    if (Math.abs(chgPct) < filters.minChg) return null;
+    if (filters.dir === 'up'   && chgPct <= 0) return null;
+    if (filters.dir === 'down' && chgPct >= 0) return null;
+    if (rvol !== null && rvol < filters.minRvol) return null;
+    if (filters.lowProx !== 'any' && low52pct !== null && low52pct > parseFloat(filters.lowProx)) return null;
+
+    return { ticker, price, changePct: chgPct, volume, rvol, low52, high52, low52pct, prevC, isDynamic };
+  } catch { return null; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCAN ORCHESTRATOR
+// ─────────────────────────────────────────────────────────────────────────────
+async function runScan() {
+  const btn = document.getElementById('btnScan');
+  btn.disabled = true; btn.textContent = 'Scanning…';
+  document.getElementById('progressWrap').style.display = 'block';
+  setProgress(0);
+  scanResults = [];
+
+  const filters = {
+    priceMin : parseFloat(document.getElementById('priceMin').value)  || 5,
+    priceMax : parseFloat(document.getElementById('priceMax').value)  || 10,
+    minVol   : (parseFloat(document.getElementById('minVol').value)   || 1) * 1e6,
+    minChg   : parseFloat(document.getElementById('minChange').value) || 3,
+    minRvol  : parseFloat(document.getElementById('minRvol').value)   || 1.5,
+    lowProx  : document.getElementById('lowProx').value,
+    dir      : document.getElementById('direction').value,
+  };
+
+  // ── PHASE 1: Dynamic seed collection
+  setPhase('Phase 1 — Fetching today\'s live movers & earnings...');
+  setProgress(5);
+  const dynamicSeeds = await fetchDynamicSeeds();
+  document.getElementById('statDynamic').textContent = dynamicSeeds.length;
+  document.getElementById('statStatic').textContent = UNIVERSE.length;
+  setPhase('Phase 1 complete — ' + dynamicSeeds.length + ' dynamic seeds found', true);
+  setProgress(10);
+  await sleep(200);
+
+  // Build master list: dynamic seeds first (checked before static), deduplicated
+  const checked = new Set();
+  const masterList = [
+    ...dynamicSeeds.map(t => ({ t, dyn: true })),
+    ...UNIVERSE.map(t => ({ t, dyn: false })),
+  ].filter(({ t }) => {
+    if (checked.has(t)) return false;
+    checked.add(t); return true;
+  });
+
+  const total = masterList.length;
+  let scanned = 0;
+
+  // ── PHASE 2: Quote + metric check
+  setPhase('Phase 2 — Checking ' + total + ' tickers for live quotes...');
+  document.getElementById('statScanned').textContent = '0 / ' + total;
+
+  // Batch with rate-limit friendly pacing (Finnhub free = ~30 req/s, be safe at ~8/s)
+  const BATCH = 4;
+  const DELAY = 500; // ms between batches → ~8 req/s per batch pair
+
+  for (let i = 0; i < masterList.length; i += BATCH) {
+    const batch = masterList.slice(i, i + BATCH);
+    const results = await Promise.all(
+      batch.map(({ t, dyn }) => evaluateTicker(t, dyn, filters))
+    );
+    for (const r of results) {
+      if (r) {
+        // Don't add duplicate tickers
+        if (!scanResults.find(x => x.ticker === r.ticker)) {
+          scanResults.push(r);
+          document.getElementById('statResults').textContent = scanResults.length;
+        }
+      }
+    }
+    scanned += batch.length;
+    document.getElementById('statScanned').textContent = scanned + ' / ' + total;
+    setProgress(10 + Math.round((scanned / total) * 88));
+    renderTable();
+    if (i + BATCH < masterList.length) await sleep(DELAY);
+  }
+
+  // Done
+  setProgress(100);
+  setPhase('Scan complete — ' + scanResults.length + ' results from ' + scanned + ' tickers checked', true);
+  document.getElementById('lastScanTime').textContent = 'Last scan: ' + new Date().toLocaleTimeString();
+
+  setTimeout(() => {
+    document.getElementById('progressWrap').style.display = 'none';
+    setProgress(0);
+  }, 800);
+
+  btn.disabled = false; btn.textContent = '⟳ Scan';
+  sortBy(sortCol, true);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render
+// ─────────────────────────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('resultsBody');
+  if (!scanResults.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="table-empty"><div class="big">⟳</div><div class="msg">Scanning…</div></div></td></tr>`;
+    return;
+  }
+
+  const sorted = [...scanResults].sort((a, b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (va == null) va = sortDir > 0 ? Infinity : -Infinity;
+    if (vb == null) vb = sortDir > 0 ? Infinity : -Infinity;
+    if (typeof va === 'string') return va.localeCompare(vb) * sortDir;
+    return (va - vb) * sortDir;
+  });
+
+  tbody.innerHTML = sorted.map(r => {
+    const up = r.changePct >= 0;
+
+    // RVOL bar
+    const rPct = r.rvol != null ? Math.min(r.rvol / 5 * 100, 100).toFixed(0) : 0;
+    const rColor = r.rvol >= 3 ? '#ff6b35' : r.rvol >= 1.5 ? '#ffcc00' : '#4a5568';
+    const rClass = r.rvol >= 3 ? 'rv-hot' : r.rvol >= 1.5 ? 'rv-ok' : 'rv-low';
+    const rvolHTML = r.rvol != null
+      ? `<div class="rvol-wrap"><div class="rvol-bg"><div class="rvol-fill" style="width:${rPct}%;background:${rColor}"></div></div><span class="rvol-val ${rClass}">${r.rvol.toFixed(1)}x</span></div>`
+      : '<span class="rvol-val rv-low">—</span>';
+
+    // 52W
+    let low52HTML = '—';
+    if (r.low52pct != null) {
+      const c = r.low52pct <= 25 ? 'near-low' : r.low52pct >= 75 ? 'near-high' : '';
+      const style = r.low52pct <= 25 ? 'color:var(--warn);font-weight:bold' : r.low52pct >= 75 ? 'color:var(--accent3)' : 'color:var(--text-dim)';
+      low52HTML = `<span style="${style};font-size:12px">+${r.low52pct.toFixed(1)}%</span>`;
+    }
+
+    // Signals
+    const sigs = [];
+    if (r.isDynamic)              sigs.push('<span class="sig dyn">⚡ Live</span>');
+    if (Math.abs(r.changePct)>=5) sigs.push('<span class="sig mo">Momentum</span>');
+    if (r.rvol != null && r.rvol >= 3) sigs.push('<span class="sig rv">RVOL 3x+</span>');
+    if (r.volume >= 5_000_000)    sigs.push('<span class="sig hv">High Vol</span>');
+    if (r.low52pct != null && r.low52pct <= 25) sigs.push('<span class="sig nl">Near 52W Low</span>');
+
+    return `<tr onclick="openModal('${r.ticker}')">
+      <td>
+        <div class="td-ticker">${r.ticker}</div>
+        <div class="td-src ${r.isDynamic ? 'dyn' : 'sta'}">${r.isDynamic ? '⚡ dynamic' : '· static'}</div>
+      </td>
+      <td class="td-price">${fmtP(r.price)}</td>
+      <td><span class="badge ${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(r.changePct).toFixed(2)}%</span></td>
+      <td>${fmtVol(r.volume)}</td>
+      <td>${rvolHTML}</td>
+      <td>${low52HTML}</td>
+      <td><div class="sig-cell">${sigs.length ? sigs.join('') : '<span style="color:var(--muted);font-size:11px">—</span>'}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sort
+// ─────────────────────────────────────────────────────────────────────────────
+function sortBy(col, keepDir = false) {
+  if (!keepDir) {
+    sortDir = sortCol === col ? sortDir * -1 : -1;
+    sortCol = col;
+  }
+  document.querySelectorAll('th').forEach(th => th.classList.toggle('sorted', th.dataset.col === sortCol));
+  renderTable();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Modal
+// ─────────────────────────────────────────────────────────────────────────────
+function openModal(ticker) {
+  const r = scanResults.find(x => x.ticker === ticker);
+  if (!r) return;
+  currentModal = r;
+  document.getElementById('mTicker').textContent = r.ticker;
+  document.getElementById('mSub').textContent = r.isDynamic ? '⚡ Dynamic seed — found via live movers' : '· Static universe candidate';
+  document.getElementById('mPrice').textContent = fmtP(r.price);
+  const mc = document.getElementById('mChange');
+  mc.textContent = fmtPct(r.changePct);
+  mc.style.color = r.changePct >= 0 ? 'var(--accent3)' : 'var(--red)';
+  document.getElementById('mVolume').textContent = fmtVol(r.volume);
+  document.getElementById('mRvol').textContent = r.rvol != null ? r.rvol.toFixed(2)+'x' : '—';
+  document.getElementById('mLow52').textContent = fmtP(r.low52);
+  document.getElementById('mHigh52').textContent = fmtP(r.high52);
+  document.getElementById('mPrevC').textContent = fmtP(r.prevC);
+  document.getElementById('mSource').textContent = r.isDynamic ? 'Live Mover' : 'Static List';
+  document.getElementById('mJournalLink').href = `trade-journal.html?ticker=${ticker}`;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal(e) { if (e.target.id === 'modalOverlay') closeModalDirect(); }
+function closeModalDirect() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+function addToWatchlist() {
+  if (!currentModal) return;
+  const wl = JSON.parse(localStorage.getItem('autostockWatchlist') || '[]');
+  if (!wl.find(e => e.ticker === currentModal.ticker)) {
+    wl.push({ ticker: currentModal.ticker, price: currentModal.price, note: 'From Low-Cap Scanner', added: new Date().toISOString() });
+    localStorage.setItem('autostockWatchlist', JSON.stringify(wl));
+    alert(currentModal.ticker + ' added to watchlist!');
+  } else {
+    alert(currentModal.ticker + ' is already on your watchlist.');
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModalDirect(); });
+</script>
+</body>
+</html>
