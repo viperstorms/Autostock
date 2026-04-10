@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pre-Market Watchlist | Autostock</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0c10; --panel: #0f1318; --border: #1e2530;
+    --accent: #00e5ff; --accent2: #ff6b35; --accent3: #39ff14;
+    --warn: #ffcc00; --red: #ff3d57; --muted: #4a5568;
+    --text: #c8d6e5; --text-dim: #6b7a8d;
+    --mono: 'Share Tech Mono', monospace;
+    --cond: 'Barlow Condensed', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,12,16,0.95); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 24px; height: 48px;
+  }
+  .nav-brand { font-family: var(--cond); font-weight: 700; font-size: 18px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-right: 32px; text-decoration: none; }
+  nav a { color: var(--text-dim); text-decoration: none; font-family: var(--cond); font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 0 14px; height: 48px; display: flex; align-items: center; border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s; }
+  nav a:hover { color: var(--text); }
+  nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  main { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  /* HEADER */
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  .page-title { font-family: var(--cond); font-size: 28px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--accent); }
+  .page-title span { color: var(--text-dim); font-size: 13px; font-weight: 400; letter-spacing: 1px; display: block; margin-top: 2px; }
+
+  /* CLOCK */
+  .clock-bar {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px 20px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  }
+  .clock-time { font-size: 28px; color: var(--accent); letter-spacing: 2px; font-weight: bold; }
+  .clock-label { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+  .market-status {
+    padding: 5px 14px; border-radius: 20px; font-family: var(--cond);
+    font-size: 13px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
+    border: 1px solid;
+  }
+  .status-premarket { color: var(--warn); border-color: var(--warn); background: rgba(255,204,0,0.08); }
+  .status-open      { color: var(--accent3); border-color: var(--accent3); background: rgba(57,255,20,0.08); }
+  .status-closed    { color: var(--muted); border-color: var(--muted); background: rgba(74,85,104,0.08); }
+  .status-afterhours{ color: var(--accent2); border-color: var(--accent2); background: rgba(255,107,53,0.08); }
+  .time-to-open { font-size: 12px; color: var(--text-dim); margin-left: auto; }
+  .time-to-open strong { color: var(--warn); }
+
+  /* CONTROLS */
+  .controls {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 16px 20px; margin-bottom: 20px;
+    display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;
+  }
+  .fg { display: flex; flex-direction: column; gap: 5px; }
+  .fg label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); }
+  .fg input, .fg select {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 7px 10px; width: 130px; outline: none; transition: border-color 0.2s;
+  }
+  .fg input:focus, .fg select:focus { border-color: var(--accent); }
+  .fg select option { background: #0f1318; }
+
+  .btn-primary {
+    background: var(--accent); color: #000; border: none; border-radius: 4px;
+    font-family: var(--cond); font-weight: 700; font-size: 15px; letter-spacing: 2px;
+    text-transform: uppercase; padding: 8px 28px; cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s; align-self: flex-end; white-space: nowrap;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 4px; font-family: var(--cond); font-weight: 600; font-size: 13px;
+    letter-spacing: 1px; text-transform: uppercase; padding: 8px 18px; cursor: pointer;
+    transition: border-color 0.2s, color 0.2s; align-self: flex-end; white-space: nowrap;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* PROGRESS */
+  .progress-wrap { display: none; margin-bottom: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; height: 4px; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); width: 0%; transition: width 0.3s; border-radius: 4px; }
+  .phase-log { min-height: 22px; margin-bottom: 14px; font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 8px; }
+  .pdot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: pulse 1s infinite; display: none; }
+  .pdot.show { display: block; }
+  .pdot.done { background: var(--accent3); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* STATUS PILLS */
+  .status-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; font-size: 12px; flex-wrap: wrap; }
+  .pill { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 4px 14px; display: flex; align-items: center; gap: 8px; }
+  .pill .lbl { color: var(--text-dim); }
+  .pill .val { color: var(--accent); font-weight: bold; }
+  .pill .val.up { color: var(--accent3); }
+  .pill .val.dn { color: var(--red); }
+
+  /* WATCHLIST SAVED BANNER */
+  .saved-banner {
+    display: none; background: rgba(57,255,20,0.08); border: 1px solid rgba(57,255,20,0.3);
+    border-radius: 6px; padding: 10px 16px; margin-bottom: 16px;
+    font-size: 12px; color: var(--accent3); display: none; align-items: center; gap: 10px;
+  }
+  .saved-banner.show { display: flex; }
+
+  /* TABLE */
+  .table-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 20px; }
+  .table-toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 8px;
+  }
+  .table-toolbar-title { font-family: var(--cond); font-size: 13px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); }
+  .sort-hint { font-size: 10px; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: rgba(0,229,255,0.04); }
+  th { padding: 10px 14px; text-align: left; font-family: var(--cond); font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; transition: color 0.15s; }
+  th:hover { color: var(--accent); }
+  th.sorted { color: var(--accent); }
+  th .sa { margin-left: 4px; opacity: 0.4; }
+  th.sorted .sa { opacity: 1; }
+  tbody tr { border-bottom: 1px solid rgba(30,37,48,0.5); transition: background 0.15s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(0,229,255,0.03); }
+  td { padding: 11px 14px; vertical-align: middle; white-space: nowrap; }
+
+  .td-ticker { font-family: var(--cond); font-size: 17px; font-weight: 700; letter-spacing: 1px; color: var(--accent); }
+  .td-price { color: var(--text); font-weight: bold; font-size: 14px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 4px; font-size: 13px; font-weight: bold; }
+  .badge.up   { background: rgba(57,255,20,0.12);  color: var(--accent3); }
+  .badge.down { background: rgba(255,61,87,0.12); color: var(--red); }
+
+  /* RVOL */
+  .rvol-wrap { display: flex; align-items: center; gap: 8px; }
+  .rvol-bg { width: 80px; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; flex-shrink: 0; }
+  .rvol-fill { height: 100%; border-radius: 4px; }
+  .rvol-val { font-size: 13px; min-width: 36px; font-weight: bold; }
+  .rv-fire { color: var(--accent2); } .rv-hot { color: var(--warn); } .rv-ok { color: var(--text-dim); }
+
+  /* CONVICTION */
+  .conv-wrap { display: flex; gap: 3px; }
+  .conv-bar { width: 8px; height: 18px; border-radius: 2px; background: var(--border); }
+  .conv-bar.filled-fire { background: var(--accent2); }
+  .conv-bar.filled-hot  { background: var(--warn); }
+  .conv-bar.filled-ok   { background: var(--accent); }
+
+  /* SIGNALS */
+  .sig-cell { display: flex; gap: 4px; flex-wrap: wrap; }
+  .sig { font-size: 9px; font-family: var(--cond); font-weight: 700; letter-spacing: 1px; padding: 2px 7px; border-radius: 3px; text-transform: uppercase; border: 1px solid; }
+  .sig.gap-up   { color: var(--accent3); border-color: var(--accent3); background: rgba(57,255,20,0.08); }
+  .sig.gap-dn   { color: var(--red);     border-color: var(--red);     background: rgba(255,61,87,0.08); }
+  .sig.hvol     { color: var(--accent2); border-color: var(--accent2); background: rgba(255,107,53,0.1); }
+  .sig.rvol3    { color: var(--accent);  border-color: var(--accent);  background: rgba(0,229,255,0.08); }
+  .sig.nearlow  { color: var(--warn);    border-color: var(--warn);    background: rgba(255,204,0,0.08); }
+  .sig.earnings { color: #c084fc;        border-color: #c084fc;        background: rgba(192,132,252,0.08); }
+
+  /* ADD BUTTON */
+  .btn-add {
+    background: rgba(0,229,255,0.08); border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 4px; font-family: var(--cond); font-size: 11px; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase; padding: 5px 12px; cursor: pointer;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-add:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.12); }
+  .btn-add.added { border-color: var(--accent3); color: var(--accent3); background: rgba(57,255,20,0.08); cursor: default; }
+
+  /* EMPTY */
+  .table-empty { padding: 60px 20px; text-align: center; color: var(--text-dim); }
+  .table-empty .big { font-size: 40px; margin-bottom: 12px; }
+  .table-empty .msg { font-family: var(--cond); font-size: 16px; letter-spacing: 1px; color: var(--muted); }
+  .table-empty .sub { font-size: 11px; margin-top: 8px; color: var(--muted); }
+
+  /* GAME PLAN */
+  .gameplan {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 20px; margin-bottom: 20px;
+  }
+  .gameplan-title { font-family: var(--cond); font-size: 16px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent2); margin-bottom: 14px; }
+  .gameplan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+  .gp-item { display: flex; flex-direction: column; gap: 4px; }
+  .gp-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
+  .gp-val { font-size: 15px; color: var(--text); font-weight: bold; }
+  .gp-val.good { color: var(--accent3); }
+  .gp-val.warn { color: var(--warn); }
+  .gp-val.bad  { color: var(--red); }
+  .gp-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* DISCLAIMER */
+  .disclaimer { margin-top: 24px; font-size: 10px; color: var(--muted); letter-spacing: 0.3px; line-height: 1.7; border-left: 2px solid var(--border); padding-left: 12px; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="index.html">⚡ Autostock</a>
+  <a href="premarket-watchlist.html" class="active">Pre-Market</a>
+  <a href="swing-scanner.html">Swing Scanner</a>
+  <a href="lowcap-scanner.html">Low-Cap Scanner</a>
+  <a href="watchlist.html">Watchlist</a>
+  <a href="entry-tracker.html">Entry Tracker</a>
+  <a href="trade-journal.html">Journal</a>
+  <a href="trade-calendar.html">Calendar</a>
+</nav>
+
+<main>
+  <div class="page-header">
+    <div>
+      <div class="page-title">
+        Pre-Market Watchlist
+        <span>Run 7:00–9:30 AM ET · Overnight Movers · $5–$10 · Intraday Setup Builder</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLOCK -->
+  <div class="clock-bar">
+    <div>
+      <div class="clock-label">Eastern Time</div>
+      <div class="clock-time" id="clockTime">--:--:--</div>
+    </div>
+    <div id="marketStatusBadge" class="market-status status-closed">Market Closed</div>
+    <div class="time-to-open" id="timeToOpen"></div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <div class="fg">
+      <label>Price Min ($)</label>
+      <input type="number" id="priceMin" value="5.00" step="0.50" min="0" />
+    </div>
+    <div class="fg">
+      <label>Price Max ($)</label>
+      <input type="number" id="priceMax" value="10.00" step="0.50" />
+    </div>
+    <div class="fg">
+      <label>Min Gap %</label>
+      <input type="number" id="minGap" value="5" step="0.5" />
+    </div>
+    <div class="fg">
+      <label>Min RVOL</label>
+      <input type="number" id="minRvol" value="3" step="0.5" min="0" />
+    </div>
+    <div class="fg">
+      <label>Direction</label>
+      <select id="direction">
+        <option value="both">Both</option>
+        <option value="up">Gap Up Only</option>
+        <option value="down">Gap Down Only</option>
+      </select>
+    </div>
+    <button class="btn-primary" id="btnBuild" onclick="runBuild()">⟳ Build Watchlist</button>
+    <button class="btn-secondary" onclick="exportList()">↓ Export TOS List</button>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div class="phase-log" id="phaseLog">
+    <span class="pdot" id="phaseDot"></span>
+    <span id="phaseText"></span>
+  </div>
+
+  <!-- STATUS -->
+  <div class="status-bar">
+    <div class="pill"><span class="lbl">Results</span><span class="val" id="statResults">—</span></div>
+    <div class="pill"><span class="lbl">Gap Up</span><span class="val up" id="statUp">—</span></div>
+    <div class="pill"><span class="lbl">Gap Down</span><span class="val dn" id="statDown">—</span></div>
+    <div class="pill"><span class="lbl">Avg Gap</span><span class="val" id="statAvgGap">—</span></div>
+    <div class="pill"><span class="lbl">Scanned</span><span class="val" id="statScanned">—</span></div>
+  </div>
+
+  <!-- GAME PLAN -->
+  <div class="gameplan" id="gamePlan" style="display:none">
+    <div class="gameplan-title">⚡ Today's Intraday Game Plan</div>
+    <div class="gameplan-grid">
+      <div class="gp-item">
+        <span class="gp-label">Scan Window</span>
+        <span class="gp-val good">9:45 – 10:15 AM</span>
+        <span class="gp-sub">Let opening noise settle first</span>
+      </div>
+      <div class="gp-item">
+        <span class="gp-label">Entry Trigger</span>
+        <span class="gp-val">5%+ move + RVOL 3x+</span>
+        <span class="gp-sub">Confirm in thinkorswim</span>
+      </div>
+      <div class="gp-item">
+        <span class="gp-label">Risk Per Trade</span>
+        <span class="gp-val warn" id="gpRisk">—</span>
+        <span class="gp-sub">1% of account max</span>
+      </div>
+      <div class="gp-item">
+        <span class="gp-label">Max Position Size</span>
+        <span class="gp-val" id="gpShares">—</span>
+        <span class="gp-sub">At $0.50 stop distance</span>
+      </div>
+      <div class="gp-item">
+        <span class="gp-label">Target R:R</span>
+        <span class="gp-val good">2:1 minimum</span>
+        <span class="gp-sub">Take T1, trail to T2</span>
+      </div>
+      <div class="gp-item">
+        <span class="gp-label">Exit Rule</span>
+        <span class="gp-val warn">Same day, no holds</span>
+        <span class="gp-sub">Out before 3:45 PM</span>
+      </div>
+      <div class="gp-item">
+        <span class="gp-label">Cooldown After Trade</span>
+        <span class="gp-val">1–2 days</span>
+        <span class="gp-sub">T+1 settlement in Roth</span>
+      </div>
+      <div class="gp-item">
+        <span class="gp-label">PDT Status (Roth IRA)</span>
+        <span class="gp-val good">Not Applicable</span>
+        <span class="gp-sub">Roth IRA exempt from PDT</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <div class="table-toolbar">
+      <span class="table-toolbar-title">Pre-Market Candidates</span>
+      <span class="sort-hint">Sorted by RVOL · Click headers to resort · + Watch to save for open</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th data-col="ticker"    onclick="sortBy('ticker')">Ticker <span class="sa">↕</span></th>
+          <th data-col="price"     onclick="sortBy('price')">PM Price <span class="sa">↕</span></th>
+          <th data-col="prevClose" onclick="sortBy('prevClose')">Prev Close <span class="sa">↕</span></th>
+          <th data-col="gapPct"   onclick="sortBy('gapPct')">Gap % <span class="sa">↕</span></th>
+          <th data-col="volume"    onclick="sortBy('volume')">Volume <span class="sa">↕</span></th>
+          <th data-col="rvol"      onclick="sortBy('rvol')">RVOL <span class="sa">↕</span></th>
+          <th data-col="conviction" onclick="sortBy('conviction')">Conviction <span class="sa">↕</span></th>
+          <th>Signals</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody">
+        <tr><td colspan="9">
+          <div class="table-empty">
+            <div class="big">☽</div>
+            <div class="msg">Run this 7:00–9:30 AM before the open</div>
+            <div class="sub">Identifies overnight gap candidates in your $5–$10 range · Cross-reference in thinkorswim at 9:45 AM</div>
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="disclaimer">
+    ⚠ Pre-market data via Finnhub. Volume data is limited before 9:30 AM open — treat volume figures as directional signals, not precise counts. RVOL uses 10-day average volume as denominator. Gap % is pre-market price vs. prior close. Always confirm setups in thinkorswim before entering. Not financial advice. Roth IRA day trading is permitted but subject to T+1 cash settlement — your 1-2 day cooldown handles this correctly.
+  </div>
+</main>
+
+<script>
+const API_KEY = 'd6s1gihr01qpss2i0kegd6s1gihr01qpss2i0kf0';
+const ACCOUNT_SIZE = 500; // Starting capital — update as account grows
+
+// ── Candidate universe (same as lowcap-scanner static list)
+const UNIVERSE = [
+  'NOV','RIG','OII','PTEN','NEXT','VTLE','CDEV','PUMP','KLXE','SND',
+  'WTTR','AMPY','PBF','CRC','GPRE','PARR','CLNE','AMRC','REGI','GEVO',
+  'OPAL','BLNK','EVGO','CHPT','VLTA','PTRA','GOEV','REE','HYLN','WKHS',
+  'HOPE','BANC','PFBC','CASH','BSVN','BUSE','FBMS','HTLF','NBHC','TBNK',
+  'MFIN','ESSA','KRNY','BRKL','TCBK','IVR','ARR','MFA','NYMT','TWO',
+  'CHMI','GPMT','MPW','GOOD','HASI','EPRT','STWD','BXMT','LADR','SNDL',
+  'CLOV','OCGN','BCRX','AGEN','IBRX','GOVX','ENVB','CTXR','NKTR','ARCT',
+  'VBIV','LYRA','PRAXIS','CALT','AVCT','ADMA','GNPX','MYMD','RIGL','AKBA',
+  'CTIC','ACRS','HRMY','LXRX','PRTK','CLVS','SUPN','AVDL','SPPI','PXLW',
+  'ACMR','KPLT','MDJH','GFAI','HIVE','BTBT','CIFR','EBON','BNGO','INPX',
+  'XELA','CLSK','MARA','RIOT','SENS','NXTP','WISA','ATER','BKKT','MIGI',
+  'VUZI','EXPR','BBIG','NKLA','SPCE','LCID','RIVN','FSR','RIDE','SOLO',
+  'AYRO','ARVL','KNDI','MULN','FFIE','HYZN','NIO','XPEV','LI','BILI',
+  'DOYU','HUYA','MOMO','TIGR','GOTU','JMIA','VNET','QFIN','IQ','CATO',
+  'PRTY','TLYS','TUYA','LMND','ROOT','AMWL','EOSE','SENS','IDEX','KOSS',
+  'NAKD','PLBY','CDEV','NOG','SM','GPL','HL','EXK','MAG','PAAS',
+  'SILV','SVM','SSRM','AG','CDE','CLFD','PCTY','KTOS','VSE','DRS',
+];
+const DEDUPED = [...new Set(UNIVERSE)];
+
+let results = [];
+let sortCol = 'rvol';
+let sortDir = -1;
+let watchlistAdded = new Set(JSON.parse(localStorage.getItem('pmAddedToday') || '[]'));
+
+// ── Clock & market status
+function getETTime() {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+}
+
+function getMarketStatus(et) {
+  const h = et.getHours(), m = et.getMinutes();
+  const mins = h * 60 + m;
+  const day = et.getDay();
+  if (day === 0 || day === 6) return 'weekend';
+  if (mins >= 240 && mins < 570) return 'premarket';  // 4:00–9:30
+  if (mins >= 570 && mins < 960) return 'open';        // 9:30–16:00
+  if (mins >= 960 && mins < 1200) return 'afterhours'; // 16:00–20:00
+  return 'closed';
+}
+
+function updateClock() {
+  const et = getETTime();
+  const h = String(et.getHours()).padStart(2,'0');
+  const m = String(et.getMinutes()).padStart(2,'0');
+  const s = String(et.getSeconds()).padStart(2,'0');
+  document.getElementById('clockTime').textContent = `${h}:${m}:${s}`;
+
+  const status = getMarketStatus(et);
+  const badge = document.getElementById('marketStatusBadge');
+  const countdown = document.getElementById('timeToOpen');
+
+  const labels = {
+    premarket: ['Pre-Market', 'status-premarket'],
+    open:      ['Market Open', 'status-open'],
+    afterhours:['After Hours', 'status-afterhours'],
+    closed:    ['Market Closed', 'status-closed'],
+    weekend:   ['Weekend', 'status-closed'],
+  };
+  badge.textContent = labels[status][0];
+  badge.className = 'market-status ' + labels[status][1];
+
+  // Countdown to open
+  if (status === 'premarket') {
+    const openMins = 570;
+    const curMins = et.getHours() * 60 + et.getMinutes();
+    const diff = openMins - curMins;
+    const hh = Math.floor(diff / 60);
+    const mm = diff % 60;
+    countdown.innerHTML = `Open in <strong>${hh > 0 ? hh+'h ' : ''}${mm}m</strong> · Best scan window: <strong>9:45–10:15 AM</strong>`;
+  } else if (status === 'open') {
+    const closeMins = 960;
+    const curMins = et.getHours() * 60 + et.getMinutes();
+    const diff = closeMins - curMins;
+    const hh = Math.floor(diff / 60);
+    const mm = diff % 60;
+    countdown.innerHTML = `Market closes in <strong>${hh}h ${mm}m</strong> · Exit all positions by <strong>3:45 PM</strong>`;
+  } else {
+    countdown.textContent = '';
+  }
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Helpers
+const fmtP   = v => v != null ? '$' + v.toFixed(2) : '—';
+const fmtPct = v => v != null ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%' : '—';
+const fmtVol = v => {
+  if (v == null) return '—';
+  if (v >= 1e9) return (v/1e9).toFixed(2)+'B';
+  if (v >= 1e6) return (v/1e6).toFixed(2)+'M';
+  if (v >= 1e3) return (v/1e3).toFixed(0)+'K';
+  return String(v);
+};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function setPhase(msg, done=false) {
+  document.getElementById('phaseText').textContent = msg;
+  const dot = document.getElementById('phaseDot');
+  dot.classList.add('show');
+  dot.classList.toggle('done', done);
+}
+
+// ── Conviction score (0–5) based on gap + rvol + volume
+function convictionScore(r) {
+  let score = 0;
+  if (Math.abs(r.gapPct) >= 10) score += 2; else if (Math.abs(r.gapPct) >= 5) score += 1;
+  if (r.rvol >= 5) score += 2; else if (r.rvol >= 3) score += 1;
+  if (r.volume >= 2_000_000) score += 1;
+  return Math.min(score, 5);
+}
+
+// ── Build
+async function runBuild() {
+  const btn = document.getElementById('btnBuild');
+  btn.disabled = true; btn.textContent = 'Building…';
+  const pw = document.getElementById('progressWrap');
+  const pb = document.getElementById('progressBar');
+  pw.style.display = 'block'; pb.style.width = '5%';
+  results = [];
+
+  const priceMin = +document.getElementById('priceMin').value || 5;
+  const priceMax = +document.getElementById('priceMax').value || 10;
+  const minGap   = +document.getElementById('minGap').value   || 5;
+  const minRvol  = +document.getElementById('minRvol').value  || 3;
+  const dir      = document.getElementById('direction').value;
+
+  // Reset stats
+  ['statResults','statUp','statDown','statAvgGap','statScanned'].forEach(id => {
+    document.getElementById(id).textContent = '—';
+  });
+
+  setPhase('Scanning ' + DEDUPED.length + ' tickers for overnight gaps…');
+
+  const BATCH = 4;
+  const DELAY = 500;
+  let scanned = 0;
+
+  for (let i = 0; i < DEDUPED.length; i += BATCH) {
+    const batch = DEDUPED.slice(i, i + BATCH);
+    const batchResults = await Promise.all(batch.map(t => checkTicker(t, priceMin, priceMax, minGap, minRvol, dir)));
+
+    for (const r of batchResults) {
+      if (r) results.push(r);
+    }
+
+    scanned += batch.length;
+    pb.style.width = Math.round((scanned / DEDUPED.length) * 100) + '%';
+    document.getElementById('statScanned').textContent = scanned + ' / ' + DEDUPED.length;
+    document.getElementById('statResults').textContent = results.length;
+    updateSummaryStats();
+    renderTable();
+    if (i + BATCH < DEDUPED.length) await sleep(DELAY);
+  }
+
+  // Done
+  pb.style.width = '100%';
+  setPhase('Done — ' + results.length + ' candidates found from ' + scanned + ' tickers', true);
+  setTimeout(() => { pw.style.display = 'none'; pb.style.width = '0%'; }, 800);
+  btn.disabled = false; btn.textContent = '⟳ Build Watchlist';
+
+  // Show game plan
+  if (results.length > 0) {
+    document.getElementById('gamePlan').style.display = 'block';
+    document.getElementById('gpRisk').textContent = '$' + (ACCOUNT_SIZE * 0.01).toFixed(0) + ' max';
+    const maxShares = Math.floor((ACCOUNT_SIZE * 0.01) / 0.50);
+    document.getElementById('gpShares').textContent = maxShares + ' shares';
+  }
+
+  sortBy(sortCol, true);
+}
+
+async function checkTicker(ticker, priceMin, priceMax, minGap, minRvol, dir) {
+  try {
+    const [qResp, mResp] = await Promise.all([
+      fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${API_KEY}`),
+      fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${ticker}&metric=all&token=${API_KEY}`)
+    ]);
+    if (!qResp.ok) return null;
+    const q = await qResp.json();
+    const m = await mResp.json().catch(() => ({}));
+
+    if (!q || q.c === 0) return null;
+
+    const price    = q.c;   // current / pre-market price (Finnhub returns latest available)
+    const prevC    = q.pc;  // previous close
+    if (!prevC || prevC === 0) return null;
+
+    const gapPct   = ((price - prevC) / prevC) * 100;
+    const volume   = q.v || 0;
+    const avgVol   = m?.metric?.['10DayAverageTradingVolume']
+                     ? m.metric['10DayAverageTradingVolume'] * 1e6 : null;
+    const rvol     = avgVol && avgVol > 0 ? volume / avgVol : null;
+    const low52    = m?.metric?.['52WeekLow'] ?? null;
+    const high52   = m?.metric?.['52WeekHigh'] ?? null;
+
+    // Filters
+    if (price < priceMin || price > priceMax) return null;
+    if (Math.abs(gapPct) < minGap) return null;
+    if (dir === 'up'   && gapPct <= 0) return null;
+    if (dir === 'down' && gapPct >= 0) return null;
+    if (rvol !== null && rvol < minRvol) return null;
+
+    const conviction = convictionScore({ gapPct, rvol, volume });
+
+    return { ticker, price, prevC, gapPct, volume, rvol, low52, high52, conviction };
+  } catch { return null; }
+}
+
+function updateSummaryStats() {
+  const ups   = results.filter(r => r.gapPct > 0);
+  const downs = results.filter(r => r.gapPct < 0);
+  const avgGap = results.length
+    ? results.reduce((a, r) => a + Math.abs(r.gapPct), 0) / results.length
+    : null;
+  document.getElementById('statUp').textContent = ups.length;
+  document.getElementById('statDown').textContent = downs.length;
+  document.getElementById('statAvgGap').textContent = avgGap ? avgGap.toFixed(1) + '%' : '—';
+}
+
+// ── Render
+function renderTable() {
+  const tbody = document.getElementById('resultsBody');
+  if (!results.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="table-empty">
+      <div class="big">✗</div>
+      <div class="msg">No candidates matched your filters</div>
+      <div class="sub">Try loosening Gap % or RVOL thresholds</div>
+    </div></td></tr>`;
+    return;
+  }
+
+  const sorted = [...results].sort((a, b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (va == null) va = sortDir > 0 ? Infinity : -Infinity;
+    if (vb == null) vb = sortDir > 0 ? Infinity : -Infinity;
+    if (typeof va === 'string') return va.localeCompare(vb) * sortDir;
+    return (va - vb) * sortDir;
+  });
+
+  tbody.innerHTML = sorted.map(r => {
+    const up = r.gapPct >= 0;
+
+    // RVOL
+    const rPct = r.rvol != null ? Math.min(r.rvol / 6 * 100, 100).toFixed(0) : 0;
+    const rColor = r.rvol >= 5 ? '#ff6b35' : r.rvol >= 3 ? '#ffcc00' : '#4a5568';
+    const rClass = r.rvol >= 5 ? 'rv-fire' : r.rvol >= 3 ? 'rv-hot' : 'rv-ok';
+    const rvolHTML = r.rvol != null
+      ? `<div class="rvol-wrap">
+           <div class="rvol-bg"><div class="rvol-fill" style="width:${rPct}%;background:${rColor}"></div></div>
+           <span class="rvol-val ${rClass}">${r.rvol.toFixed(1)}x</span>
+         </div>`
+      : '<span class="rvol-val rv-ok">—</span>';
+
+    // Conviction bars
+    const convColor = r.conviction >= 4 ? 'filled-fire' : r.conviction >= 2 ? 'filled-hot' : 'filled-ok';
+    const convBars = Array.from({length: 5}, (_, i) =>
+      `<div class="conv-bar ${i < r.conviction ? convColor : ''}"></div>`
+    ).join('');
+
+    // Signals
+    const sigs = [];
+    if (r.gapPct >= 5)  sigs.push('<span class="sig gap-up">Gap Up</span>');
+    if (r.gapPct <= -5) sigs.push('<span class="sig gap-dn">Gap Down</span>');
+    if (r.rvol != null && r.rvol >= 3) sigs.push('<span class="sig rvol3">RVOL 3x+</span>');
+    if (r.volume >= 2_000_000) sigs.push('<span class="sig hvol">High Vol</span>');
+    if (r.low52 && r.price <= r.low52 * 1.10) sigs.push('<span class="sig nearlow">Near 52W Low</span>');
+
+    const isAdded = watchlistAdded.has(r.ticker);
+
+    return `<tr>
+      <td><div class="td-ticker">${r.ticker}</div></td>
+      <td class="td-price">${fmtP(r.price)}</td>
+      <td style="color:var(--text-dim)">${fmtP(r.prevC)}</td>
+      <td><span class="badge ${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(r.gapPct).toFixed(2)}%</span></td>
+      <td>${fmtVol(r.volume)}</td>
+      <td>${rvolHTML}</td>
+      <td><div class="conv-wrap">${convBars}</div></td>
+      <td><div class="sig-cell">${sigs.join('')}</div></td>
+      <td>
+        <button class="btn-add ${isAdded ? 'added' : ''}" onclick="addToWatch('${r.ticker}', ${r.price})" ${isAdded ? 'disabled' : ''}>
+          ${isAdded ? '✓ Watching' : '+ Watch'}
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Sort
+function sortBy(col, keepDir=false) {
+  if (!keepDir) {
+    sortDir = sortCol === col ? sortDir * -1 : -1;
+    sortCol = col;
+  }
+  document.querySelectorAll('th').forEach(th => th.classList.toggle('sorted', th.dataset.col === sortCol));
+  renderTable();
+}
+
+// ── Watchlist
+function addToWatch(ticker, price) {
+  const wl = JSON.parse(localStorage.getItem('autostockWatchlist') || '[]');
+  if (!wl.find(e => e.ticker === ticker)) {
+    wl.push({
+      ticker, price,
+      note: 'Pre-market gap candidate · ' + new Date().toLocaleDateString(),
+      added: new Date().toISOString()
+    });
+    localStorage.setItem('autostockWatchlist', JSON.stringify(wl));
+  }
+  watchlistAdded.add(ticker);
+  localStorage.setItem('pmAddedToday', JSON.stringify([...watchlistAdded]));
+  renderTable();
+}
+
+// ── Export for thinkorswim watchlist (comma-separated)
+function exportList() {
+  if (!results.length) { alert('Run a scan first.'); return; }
+  const sorted = [...results].sort((a,b) => b.conviction - a.conviction);
+  const tickers = sorted.map(r => r.ticker).join(',');
+  const blob = new Blob([tickers], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'premarket-watchlist-' + new Date().toISOString().slice(0,10) + '.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Clear today's added list at midnight
+const now = new Date();
+const lastReset = localStorage.getItem('pmResetDate');
+const today = now.toDateString();
+if (lastReset !== today) {
+  localStorage.removeItem('pmAddedToday');
+  localStorage.setItem('pmResetDate', today);
+  watchlistAdded = new Set();
+}
+</script>
+</body>
+</html>
